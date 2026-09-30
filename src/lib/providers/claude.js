@@ -50,6 +50,7 @@ export const ClaudeProvider = {
     displayName: 'Claude',
     cli: CLI,
     cliName: 'Claude Code',
+    icon: 'claude-symbolic',
 
     // What this provider can actually report, so the preferences only offer
     // switches it can honour.

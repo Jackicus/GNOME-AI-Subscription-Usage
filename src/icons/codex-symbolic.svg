@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- An original symbolic mark for Codex, not OpenAI's asset: a six-petalled
+     knot-rosette, one filled path with the centre cut out by a reversed circle
+     under nonzero winding, so the hole costs no second colour. The interlacing
+     of a real knot is dropped on purpose, being mud below about 24px; the
+     petals and the open centre are what carry the silhouette at panel size. -->
+<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16">
+    <path fill="#2e3436" d="M9.95 4.62 A2.14 2.14 0 1 1 11.90 8.00 A2.14 2.14 0 1 1 9.95 11.38 A2.14 2.14 0 1 1 6.05 11.38 A2.14 2.14 0 1 1 4.10 8.00 A2.14 2.14 0 1 1 6.05 4.62 A2.14 2.14 0 1 1 9.95 4.62 Z M8.00 5.70 A2.3 2.3 0 0 0 8.00 10.30 A2.3 2.3 0 0 0 8.00 5.70 Z"/>
+</svg>

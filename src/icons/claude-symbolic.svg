@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- An original symbolic mark for Claude, not Anthropic's asset: a radial burst
+     of eight spokes, each widening outwards from a common centre. Drawn as one
+     filled path so the shell's symbolic recolouring has a single silhouette to
+     tint, and kept to eight spokes because more than that closes up at 16px. -->
+<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16">
+    <path fill="#2e3436" d="M7.50 6.90 L6.95 1.10 L9.05 1.10 L8.50 6.90 Z M8.42 6.87 L12.14 2.38 L13.62 3.86 L9.13 7.58 Z M9.10 7.50 L14.90 6.95 L14.90 9.05 L9.10 8.50 Z M9.13 8.42 L13.62 12.14 L12.14 13.62 L8.42 9.13 Z M8.50 9.10 L9.05 14.90 L6.95 14.90 L7.50 9.10 Z M7.58 9.13 L3.86 13.62 L2.38 12.14 L6.87 8.42 Z M6.90 8.50 L1.10 9.05 L1.10 6.95 L6.90 7.50 Z M6.87 7.58 L2.38 3.86 L3.86 2.38 L7.58 6.87 Z"/>
+</svg>
