@@ -1,0 +1,17 @@
+# Build artifacts
+src/schemas/gschemas.compiled
+dist/
+*.zip
+
+# Python
+__pycache__/
+*.py[cod]
+
+# Editors
+.vscode/
+.idea/
+*.swp
+*~
+
+# Development tooling only; nothing here ships
+node_modules/

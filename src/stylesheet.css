@@ -1,0 +1,96 @@
+/* GNOME Shell's menus follow the light and dark preference, so nothing here
+   hardcodes a foreground colour: the ordinary text inherits the theme's, the
+   dimmed text is dimmed with actor opacity from indicator.js (St has no CSS
+   opacity), and the one flat colour that is needed -- the empty part of a bar
+   -- is a mid grey that sits correctly on either. */
+
+/* The top-bar button */
+
+.ai-usage-panel-box {
+    spacing: 4px;
+}
+
+.ai-usage-panel-label {
+    font-feature-settings: "tnum";  /* so the width does not jitter as the figure changes */
+}
+
+/* Severity is a colour, on the button and on the figures in the pop-up. The
+   normal case takes no colour at all -- it inherits the panel's foreground,
+   which keeps the button looking like part of the shell rather than a badge. */
+.ai-usage-warning {
+    color: #e5a50a;
+}
+
+.ai-usage-critical {
+    color: #e01b24;
+}
+
+/* The pop-up */
+
+.ai-usage-header {
+    padding-top: 8px;
+    padding-bottom: 2px;
+}
+
+.ai-usage-provider {
+    font-weight: bold;
+}
+
+.ai-usage-plan {
+    font-size: 0.9em;
+}
+
+.ai-usage-limit {
+    padding-top: 4px;
+    padding-bottom: 6px;
+}
+
+.ai-usage-limit-label {
+    font-size: 0.95em;
+}
+
+/* The limit the provider says is currently in force. */
+.ai-usage-active {
+    font-weight: bold;
+}
+
+.ai-usage-limit-percent {
+    font-feature-settings: "tnum";
+    font-size: 0.95em;
+}
+
+.ai-usage-bar {
+    background-color: rgba(127, 127, 127, 0.3);
+    border-radius: 3px;
+    height: 6px;
+    margin-top: 4px;
+    margin-bottom: 3px;
+}
+
+/* The accent colour is what GNOME 47 and later let the user choose, so a bar
+   that is not warning about anything is drawn in it. The plain blue before it
+   is the fallback for a shell whose CSS does not know -st-accent-color: an
+   unknown value drops the declaration, leaving the one above standing. */
+.ai-usage-bar-fill {
+    border-radius: 3px;
+    height: 6px;
+    background-color: #3584e4;
+    background-color: -st-accent-color;
+}
+
+.ai-usage-bar-fill.ai-usage-warning {
+    background-color: #e5a50a;
+}
+
+.ai-usage-bar-fill.ai-usage-critical {
+    background-color: #e01b24;
+}
+
+.ai-usage-caption {
+    font-size: 0.85em;
+}
+
+.ai-usage-caption-row {
+    padding-top: 2px;
+    padding-bottom: 4px;
+}

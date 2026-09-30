@@ -1,0 +1,9 @@
+{
+  "uuid": "ai-usage@jackicus",
+  "name": "AI Usage",
+  "description": "Shows how much of your AI subscription's rate limits you have used, as a button in the top bar: the current session, the week, and the week for each model, with the time each one resets.\n\nIt reads the numbers from the provider's own account, which is the same source its command-line tool shows you, so the figures match. Claude (Claude Code) is supported; other providers can be added.\n\nSigning in is the command-line tool's job, not this extension's. It needs that tool installed and already logged in, and it reads the login the tool has stored; it never asks for a password, and it never signs you in or out. If the stored login has gone stale the button says so and asks you to run the tool once.",
+  "settings-schema": "org.gnome.shell.extensions.ai-usage",
+  "shell-version": [ "50" ],
+  "url": "https://github.com/Jackicus/GNOME-AI-Subscription-Usage",
+  "version-name": "0.1"
+}

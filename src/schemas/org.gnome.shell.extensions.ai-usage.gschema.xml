@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schemalist>
+    <enum id="org.gnome.shell.extensions.ai-usage.primary-limit">
+        <value nick="highest" value="0"/>
+        <value nick="session" value="1"/>
+        <value nick="weekly" value="2"/>
+    </enum>
+    <enum id="org.gnome.shell.extensions.ai-usage.panel-box">
+        <value nick="left" value="0"/>
+        <value nick="center" value="1"/>
+        <value nick="right" value="2"/>
+    </enum>
+
+    <schema path="/org/gnome/shell/extensions/ai-usage/" id="org.gnome.shell.extensions.ai-usage">
+
+        <!-- What the button shows -->
+        <key name="primary-limit" enum="org.gnome.shell.extensions.ai-usage.primary-limit">
+            <default>'highest'</default>
+            <summary>Which limit the button shows</summary>
+            <description>The pop-up always lists every limit; this is the one figure on the button itself. "highest": whichever limit is closest to being used up, which is the one that will stop you first. "session": the current session only. "weekly": the week's own limit, ignoring the per-model ones.</description>
+        </key>
+        <key name="show-percent" type="b">
+            <default>true</default>
+            <summary>Show the percentage beside the icon</summary>
+            <description>With this off the button is the icon alone, tinted by how much has been used, and the figures are in the pop-up.</description>
+        </key>
+
+        <!-- Where the button sits -->
+        <key name="panel-box" enum="org.gnome.shell.extensions.ai-usage.panel-box">
+            <default>'right'</default>
+            <summary>Which end of the top bar the button sits at</summary>
+            <description>"right" puts it among the status icons, "center" beside the clock, "left" beside Activities.</description>
+        </key>
+        <key name="panel-index" type="i">
+            <default>0</default>
+            <range min="-1" max="20"/>
+            <summary>Position within that end of the top bar</summary>
+            <description>0 is the end nearest the middle of the bar; -1 puts the button last. Which neighbours it lands between depends on what other extensions have put there.</description>
+        </key>
+
+        <!-- Reading the numbers -->
+        <key name="poll-seconds" type="i">
+            <default>300</default>
+            <range min="60" max="3600"/>
+            <summary>Seconds between readings</summary>
+            <description>How often to ask the provider for the figures. Opening the pop-up always reads them again, and so does the stored login changing, so a long interval here still gives you fresh numbers when you look.</description>
+        </key>
+        <key name="poll-when-idle" type="b">
+            <default>false</default>
+            <summary>Keep reading while the screen is locked or idle</summary>
+            <description>Off by default: a locked screen has nobody looking at the button, so the readings are skipped until it is unlocked.</description>
+        </key>
+
+        <!-- Colour and warnings -->
+        <key name="warn-percent" type="i">
+            <default>80</default>
+            <range min="1" max="100"/>
+            <summary>Percentage at which a limit counts as nearly used up</summary>
+        </key>
+        <key name="critical-percent" type="i">
+            <default>95</default>
+            <range min="1" max="100"/>
+            <summary>Percentage at which a limit counts as almost gone</summary>
+        </key>
+        <key name="notify-percent" type="i">
+            <default>0</default>
+            <range min="0" max="100"/>
+            <summary>Percentage at which to send a notification</summary>
+            <description>0 turns notifications off. Above 0, crossing that percentage notifies once per limit, and not again until that limit resets.</description>
+        </key>
+
+    </schema>
+
+    <!-- One instance per provider, at
+         /org/gnome/shell/extensions/ai-usage/providers/<id>/. Relocatable so
+         that adding a provider needs no schema change: the extension and the
+         preferences both instantiate it against the provider's own id.
+
+         Not every key applies to every provider -- a provider that has no
+         per-model limits, or cannot say where its usage went, declares as much
+         in its `capabilities`, and the preferences only offer the switches it
+         can actually honour. -->
+    <schema id="org.gnome.shell.extensions.ai-usage.provider">
+        <key name="enabled" type="b">
+            <default>true</default>
+            <summary>Read this provider</summary>
+            <description>Turning a provider off stops it being read at all, and removes it from the pop-up. A provider whose command-line tool is not installed is left out whatever this says.</description>
+        </key>
+        <key name="show-in-panel" type="b">
+            <default>true</default>
+            <summary>Let this provider's figure appear on the button</summary>
+            <description>With this off the provider is still listed in the pop-up, but never supplies the single figure on the button itself. Useful when one subscription is the one you actually watch.</description>
+        </key>
+        <key name="show-per-model" type="b">
+            <default>true</default>
+            <summary>List the per-model limits</summary>
+            <description>Some providers meter each model separately as well as the account as a whole. With this off only the whole-account limits are listed.</description>
+        </key>
+        <key name="show-breakdown" type="b">
+            <default>true</default>
+            <summary>Show where the usage went</summary>
+            <description>A line naming which of the provider's surfaces the period's usage came from, when the provider reports it.</description>
+        </key>
+        <key name="show-credits" type="b">
+            <default>true</default>
+            <summary>Show paid-for extra usage</summary>
+            <description>Usage bought beyond the plan's limits, when the provider reports it and you have it turned on with them.</description>
+        </key>
+    </schema>
+</schemalist>
