@@ -147,6 +147,76 @@ print('\n\x1b[1mDisplay switches\x1b[0m — hiding a row must not throw it away'
     check('without changing the reading', full.panelEligible, true);
 }
 
+// The shapes that caused real bugs. Number(null) is 0, so a null percentage
+// used to become a confident 0% row -- and for Antigravity, which reports what
+// is LEFT, a null read as a limit fully spent. Each of these is a regression
+// test for a bug that was actually shipped into a commit.
+print('\n\x1b[1mHostile shapes\x1b[0m — a wrong number is worse than no number');
+{
+    const claude = parse(ClaudeProvider, {
+        limits: [
+            {kind: 'session', percent: null, resets_at: null},
+            {kind: 'weekly_all', percent: 42, resets_at: null},
+            {kind: 'weekly_scoped', percent: 10, scope: {surface: {display_name: 'Cowork'}}},
+        ],
+    }, {});
+    check('claude drops a null percent', claude.limits.length, 2);
+    check('claude keeps the real one', formatPercent(claude.limits[0].percent), '42%');
+    check('a surface-scoped row is named', claude.limits[1].label, 'This week · Cowork');
+    check('and counts as scoped, so it can be hidden', claude.limits[1].scoped, true);
+
+    const credits = parse(ClaudeProvider, {
+        limits: [{kind: 'session', percent: 5}],
+        extra_usage: {is_enabled: true, utilization: null},
+        spend: {percent: 30, severity: 'warning', used: {amount_minor: 1234, currency: 'USD', exponent: 2}},
+    }, {});
+    // The figure and the severity must come from the same object. Before, the
+    // percent fell back to 0 while the severity came from spend, giving an
+    // empty bar painted as a warning.
+    check('credits take the figure beside their severity', formatPercent(credits.credits.percent), '30%');
+    check('and the service severity is still honoured', credits.credits.severity, 'warning');
+
+    const noFigure = parse(ClaudeProvider, {
+        limits: [{kind: 'session', percent: 5}],
+        extra_usage: {is_enabled: true, utilization: null},
+        spend: {used: {amount_minor: 0, currency: 'USD', exponent: 2}},
+    }, {});
+    check('no credits figure means no credits row', noFigure.credits, null);
+
+    const anti = AntigravityProvider._parse({
+        groups: [{displayName: 'Gemini Models', buckets: [
+            {bucketId: 'gemini-weekly', window: 'weekly', remainingFraction: null},
+            {bucketId: 'gemini-5h', window: '5h', remainingFraction: 0},
+        ]}],
+    }, THRESHOLDS);
+    check('antigravity drops a null fraction', anti.limits.length, 1);
+    check('rather than reading it as fully spent', anti.limits.every(l => l.percent !== 100 || l.id === 'gemini-5h'), true);
+
+    const codex = parse(CodexProvider, {
+        plan_type: 'plus',
+        rate_limit: {
+            primary_window: {used_percent: null, limit_window_seconds: 18000, reset_at: 2000000000},
+            secondary_window: {used_percent: 20, limit_window_seconds: 604800, reset_after_seconds: 600},
+        },
+        credits: {has_credits: false, balance: '0'},
+        additional_rate_limits: [],
+    }, {});
+    check('codex drops a null percent', codex.limits.length, 1);
+    // A reset time derived from reset_after_seconds moves on every poll, and
+    // notifications are remembered by that timestamp -- so the limit would
+    // announce itself again every single poll.
+    check('no absolute reset means no reset shown', codex.limits[0].resetsAt, null);
+    check('a recognised window takes the shared id', codex.limits[0].id, 'weekly_all');
+    check('no credits means no credits row', codex.credits, null);
+
+    const ids = parse(CodexProvider, {
+        rate_limit: {primary_window: {used_percent: 1, limit_window_seconds: 18000, reset_at: 2000000000}},
+        additional_rate_limits: [{rate_limit: {primary_window: {used_percent: 2, limit_window_seconds: 18000, reset_at: 2000000000}}}],
+    }, {});
+    check('session window takes the shared id', ids.limits[0].id, 'session');
+    check('an unnamed model bucket keeps a stable id', ids.limits[1].id, 'model:bucket0');
+}
+
 // An unreadable response must degrade, never throw: a provider that throws
 // takes the whole pop-up down with it.
 print('\n\x1b[1mBoth\x1b[0m — a response in a shape they do not know');

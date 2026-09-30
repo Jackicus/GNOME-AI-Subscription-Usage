@@ -76,6 +76,16 @@ export class Reading {
     }
 }
 
+// Number(null) is 0, Number(true) is 1, and Number('') is 0. Any of those
+// passed through a percentage field would put a confident, wrong figure on the
+// button -- and for a provider that reports what is *left* rather than what is
+// used, a null would read as a limit that is fully spent. Only a real number
+// counts; anything else means the row is dropped, because showing nothing is
+// always better than showing a number that is not true.
+export function numberOrNull(value) {
+    return typeof value === 'number' && Number.isFinite(value) ? value : null;
+}
+
 function clampPercent(value) {
     const n = Number(value);
     if (!Number.isFinite(n))

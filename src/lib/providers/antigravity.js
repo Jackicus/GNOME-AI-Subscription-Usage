@@ -21,7 +21,7 @@ import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 import Secret from 'gi://Secret?version=1';
 
-import {Limit, Reading, Status, severityFor} from '../usage.js';
+import {Limit, Reading, Status, numberOrNull, severityFor} from '../usage.js';
 import * as Log from '../log.js';
 
 const LOAD_URL = 'https://cloudcode-pa.googleapis.com/v1internal:loadCodeAssist';
@@ -171,8 +171,10 @@ export const AntigravityProvider = {
 // this backwards would put "100%" on the button at the moment a limit was
 // untouched. It is the single most dangerous line in this file.
 function limitFromBucket(group, bucket, thresholds) {
-    const remaining = Number(bucket?.remainingFraction);
-    if (!Number.isFinite(remaining))
+    // Strictly a real number: a null here would invert to 100% used and
+    // report an untouched limit as exhausted.
+    const remaining = numberOrNull(bucket?.remainingFraction);
+    if (remaining === null)
         return null;
 
     const percent = (1 - Math.max(0, Math.min(1, remaining))) * 100;

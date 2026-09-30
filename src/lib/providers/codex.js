@@ -16,7 +16,7 @@
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 
-import {Limit, Reading, Status, severityFor} from '../usage.js';
+import {Limit, Reading, Status, numberOrNull, severityFor} from '../usage.js';
 import * as Log from '../log.js';
 
 const USAGE_URL = 'https://chatgpt.com/backend-api/wham/usage';
@@ -128,17 +128,22 @@ export const CodexProvider = {
         const limits = [];
 
         const rate = body?.rate_limit;
-        pushWindow(limits, 'primary', rate?.primary_window, thresholds, false);
-        pushWindow(limits, 'secondary', rate?.secondary_window, thresholds, false);
+        pushWindow(limits, rate?.primary_window, thresholds, {fallbackId: 'primary'});
+        pushWindow(limits, rate?.secondary_window, thresholds, {fallbackId: 'secondary'});
 
-        // Per-model buckets, each with a rate limit of the same shape.
+        // Per-model buckets, each with a rate limit of the same shape. The id
+        // is keyed on the model rather than the array position, so that it
+        // stays the same between polls -- notifications are remembered by it.
         const extra = Array.isArray(body?.additional_rate_limits) ? body.additional_rate_limits : [];
-        for (const entry of extra) {
-            const name = entry?.normal_model_slug || entry?.limit_name || entry?.metered_feature;
+        extra.forEach((entry, index) => {
+            const name = entry?.normal_model_slug || entry?.limit_name || entry?.metered_feature || null;
+            const key = name ?? `bucket${index}`;
             const detail = entry?.rate_limit;
-            pushWindow(limits, `model:${name ?? limits.length}`, detail?.primary_window, thresholds, true, name);
-            pushWindow(limits, `model:${name ?? limits.length}:secondary`, detail?.secondary_window, thresholds, true, name);
-        }
+            pushWindow(limits, detail?.primary_window, thresholds,
+                {fallbackId: `model:${key}`, scoped: true, modelName: name});
+            pushWindow(limits, detail?.secondary_window, thresholds,
+                {fallbackId: `model:${key}:secondary`, scoped: true, modelName: name});
+        });
 
         if (!limits.length)
             throw new Error('no windows in the response');
@@ -156,15 +161,18 @@ export const CodexProvider = {
 
 // ---- the response -----------------------------------------------------------
 
-function pushWindow(limits, id, window, thresholds, scoped, modelName = null) {
-    const percent = Number(window?.used_percent);
-    if (!Number.isFinite(percent))
+function pushWindow(limits, window, thresholds, {fallbackId, scoped = false, modelName = null}) {
+    const percent = numberOrNull(window?.used_percent);
+    if (percent === null)
         return;
 
-    const seconds = Number(window?.limit_window_seconds);
+    const seconds = numberOrNull(window?.limit_window_seconds);
     const base = windowLabel(seconds);
     limits.push(new Limit({
-        id,
+        // A whole-account window of a recognised length takes the same id the
+        // other providers use, so that the "figure on the button" preference
+        // can ask for the session or the week and find it here too.
+        id: scoped ? fallbackId : canonicalId(seconds) ?? fallbackId,
         label: modelName ? `${base} · ${modelName}` : base,
         percent,
         severity: severityFor(percent, thresholds),
@@ -173,12 +181,22 @@ function pushWindow(limits, id, window, thresholds, scoped, modelName = null) {
     }));
 }
 
+function canonicalId(seconds) {
+    if (seconds === null)
+        return null;
+    if (Math.abs(seconds - SESSION_WINDOW_SECONDS) < 60 * 60)
+        return 'session';
+    if (Math.abs(seconds - WEEK_WINDOW_SECONDS) < 12 * 60 * 60)
+        return 'weekly_all';
+    return null;
+}
+
 // The payload never names its windows, so the name comes from the length. The
 // two known lengths get the same wording as the other providers; anything else
 // is described rather than guessed at, so a plan with different windows still
 // reads correctly.
 function windowLabel(seconds) {
-    if (!Number.isFinite(seconds) || seconds <= 0)
+    if (seconds === null || seconds <= 0)
         return 'Current limit';
     if (Math.abs(seconds - SESSION_WINDOW_SECONDS) < 60 * 60)
         return 'Current session';
@@ -191,30 +209,38 @@ function windowLabel(seconds) {
     return `Last ${Math.round(hours / 24)} days`;
 }
 
-// reset_at is Unix epoch seconds; reset_after_seconds is the same moment said
-// relatively, and is the fallback when the absolute one is missing.
+// reset_at is Unix epoch seconds.
+//
+// The response also carries reset_after_seconds, the same moment said
+// relatively, and deriving an absolute time from it is tempting. It is a trap:
+// the derived time moves a little on every poll, and notifications are
+// remembered per window by exactly that timestamp -- so a limit above the
+// notify threshold would announce itself again every single poll. With no
+// absolute time there is simply no reset shown.
 function resetTime(window) {
-    const at = Number(window?.reset_at);
-    if (Number.isFinite(at) && at > 0)
-        return GLib.DateTime.new_from_unix_utc(at);
-
-    const after = Number(window?.reset_after_seconds);
-    if (Number.isFinite(after) && after > 0)
-        return GLib.DateTime.new_now_utc().add_seconds(after);
-    return null;
+    const at = numberOrNull(window?.reset_at);
+    if (at === null || at <= 0)
+        return null;
+    return GLib.DateTime.new_from_unix_utc(at);
 }
 
+// Only when the account actually has credits: a "0 left" row on an account
+// that never had any is noise, and it draws an empty bar under it.
 function creditsFrom(body) {
     const credits = body?.credits;
-    if (!credits)
+    if (!credits || credits.has_credits === false)
         return null;
     if (credits.unlimited === true)
         return {percent: 0, label: 'Credits · unlimited'};
 
-    const balance = Number(credits.balance);
-    if (!Number.isFinite(balance))
+    // The balance comes through as a string in the upstream types.
+    const balance = credits.balance;
+    if (typeof balance !== 'string' && typeof balance !== 'number')
         return null;
-    return {percent: 0, label: `Credits · ${balance} left`};
+    const amount = Number(balance);
+    if (!Number.isFinite(amount) || amount <= 0)
+        return null;
+    return {percent: 0, label: `Credits · ${amount} left`};
 }
 
 function planLabel(planType) {

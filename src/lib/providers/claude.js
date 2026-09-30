@@ -20,7 +20,7 @@
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 
-import {Limit, Reading, Status, severityFor} from '../usage.js';
+import {Limit, Reading, Status, numberOrNull, severityFor} from '../usage.js';
 import * as Log from '../log.js';
 
 const USAGE_URL = 'https://api.anthropic.com/api/oauth/usage';
@@ -156,10 +156,10 @@ export const ClaudeProvider = {
 // built from: one row per limit, already carrying a percentage and a severity.
 function limitFromRow(row, thresholds) {
     const kind = typeof row?.kind === 'string' ? row.kind : null;
-    if (!kind || !Number.isFinite(Number(row?.percent)))
+    const percent = numberOrNull(row?.percent);
+    if (!kind || percent === null)
         return null;
 
-    const percent = Number(row.percent);
     return new Limit({
         id: kind,
         label: labelForRow(kind, row),
@@ -167,18 +167,21 @@ function limitFromRow(row, thresholds) {
         severity: severityFor(percent, thresholds, row.severity),
         resetsAt: parseTimestamp(row.resets_at),
         active: row.is_active === true,
-        // A row carrying a scope is metered against one model rather than the
-        // account, which is the distinction the "per-model limits" switch makes.
-        scoped: !!row?.scope?.model,
+        // Any scope at all means this row is metered against something
+        // narrower than the account, which is the distinction the "per-model
+        // limits" switch makes -- a row scoped by surface counts too, or the
+        // switch could not hide it.
+        scoped: !!row?.scope,
     });
 }
 
 function labelForRow(kind, row) {
     const base = KIND_LABELS[kind] ?? humanise(kind);
     // A scoped limit is only meaningful with its scope named: two rows both
-    // saying "This week" at different percentages would read as a bug.
-    const model = row?.scope?.model?.display_name;
-    return model ? `${base} · ${model}` : base;
+    // saying "This week" at different percentages would read as a bug. The
+    // scope is usually a model; a surface is the other shape seen.
+    const scope = row?.scope?.model?.display_name ?? row?.scope?.surface?.display_name;
+    return scope ? `${base} · ${scope}` : base;
 }
 
 // The older top-level windows, kept as a fallback in case `limits` goes away
@@ -193,9 +196,9 @@ function limitsFromWindows(body, thresholds) {
 
     const limits = [];
     for (const [id, label, window, scoped] of windows) {
-        if (!Number.isFinite(Number(window?.utilization)))
+        const percent = numberOrNull(window?.utilization);
+        if (percent === null)
             continue;
-        const percent = Number(window.utilization);
         limits.push(new Limit({
             id,
             label,
@@ -226,7 +229,14 @@ function creditsFrom(body, thresholds) {
     if (!extra?.is_enabled)
         return null;
 
-    const percent = Number.isFinite(Number(extra.utilization)) ? Number(extra.utilization) : 0;
+    // The figure and its severity must come from the same place, or a 0% bar
+    // ends up coloured as a warning. spend.percent is the partner of
+    // spend.severity; extra_usage.utilization is the fallback. With neither
+    // there is no honest bar to draw, so there is no row.
+    const percent = numberOrNull(body?.spend?.percent) ?? numberOrNull(extra.utilization);
+    if (percent === null)
+        return null;
+
     const spent = money(body?.spend?.used);
     return {
         percent,
