@@ -14,6 +14,9 @@
 #   ./scripts/dev.sh nested     run it in a throwaway GNOME Shell -- headless by
 #                               default, '--window' to look at it -- so a new
 #                               extension can be seen without logging out
+#   ./scripts/dev.sh shots      the same throwaway shell, driven: open a button's
+#                               pop-up and the preferences, and write the
+#                               pictures to docs/screenshots/
 #   ./scripts/dev.sh imports    check that the preferences can still load what
 #                               they load: nothing in prefs.js's import graph
 #                               may reach St, Clutter or Soup
@@ -214,6 +217,12 @@ cmd_nested() {
     "$REPO_DIR/scripts/nested.sh" "$@"
 }
 
+# The same throwaway shell, with scripts/nested_driver.py working its controls
+# and photographing the result. Everything it writes goes to docs/screenshots/.
+cmd_shots() {
+    "$REPO_DIR/scripts/nested.sh" --shots "$@"
+}
+
 # The import-graph check: prefs.js runs without the shell, so nothing it reaches
 # may import St, Clutter or Soup.
 cmd_imports() {
@@ -276,6 +285,7 @@ case "${1:-}" in
     pack)       cmd_pack ;;
     providers)  cmd_providers ;;
     nested)     shift; cmd_nested "$@" ;;
+    shots)      shift; cmd_shots "$@" ;;
     imports)    cmd_imports ;;
     parsers)    cmd_parsers ;;
     uninstall)  cmd_uninstall ;;
