@@ -2,12 +2,44 @@
    hardcodes a foreground colour: the ordinary text inherits the theme's, the
    dimmed text is dimmed with actor opacity from indicator.js (St has no CSS
    opacity), and the one flat colour that is needed -- the empty part of a bar
-   -- is a mid grey that sits correctly on either. */
+   -- is a mid grey that sits correctly on either.
+
+   The numbers are not estimates either. Everything sized here is sized to a
+   figure taken out of the shell's own theme -- `.popup-menu-item`'s 9px 12px,
+   `.quick-settings`'s 18px, `.slider`'s 4px, `#panel .panel-button`'s
+   -minimum-hpadding -- so that a pop-up opened beside Quick Settings reads as
+   the same piece of furniture rather than something next to it. */
 
 /* The top-bar button */
 
+/* The shell gives every panel button 12px of padding either side. Around a
+   16px icon with a two- or three-character figure beside it that is more room
+   than either needs, and the effect is a button whose edge sits a long way
+   from its own number. 6px is the shell's own `-minimum-hpadding` -- what it
+   falls back to when the top bar runs out of room -- so the button is still
+   padded with a figure GNOME uses, just the tighter of the two.
+
+   Two classes and the id, so this outweighs `#panel .panel-button` whatever
+   order the two stylesheets happen to load in. */
+#panel .panel-button.ai-usage-panel-button {
+    -natural-hpadding: 6px;
+}
+
+/* `.system-status-icon` carries 6px of padding either side, which is the shell
+   sizing a button that is an icon and nothing else. This one has a figure
+   beside it, and that padding is what was holding the two apart: the icon read
+   as one thing and its own percentage as another. The shell has the same
+   problem wherever it puts several icons in one button and answers it the same
+   way -- `.panel-status-indicators-box > .system-status-icon { padding: 0 }` --
+   so the padding goes and the 4px margin stays, which with the box's own
+   spacing leaves the gap the shell uses between two icons that belong
+   together. */
 .ai-usage-panel-box {
     spacing: 4px;
+}
+
+.ai-usage-panel-box .system-status-icon {
+    padding: 0;
 }
 
 .ai-usage-panel-label {
@@ -33,9 +65,28 @@
 
 /* The pop-up */
 
+/* How wide the whole thing is. The reference is the menu this one sits beside:
+   a Quick Settings panel is two `.quick-toggle` tiles at `min-width: 12em`
+   with the grid's 12px between them, inside `.quick-settings`'s 18px of
+   padding -- 24em plus 48px, a little over 27em. In em rather than pixels so
+   that a desktop with the text scaled up gets a wider menu rather than a
+   cramped one.
+
+   Set on the menu's own box, which is the actor the shell gives
+   `.popup-menu-content` to, so every row in it is laid out against the full
+   width and they all end on the same edge. */
+.ai-usage-menu {
+    min-width: 27em;
+}
+
+/* `.popup-menu-content` pads the menu by 6px and `.popup-menu-item` pads each
+   row by 12px, so the space from the edge of the pop-up to the start of a row
+   is already the 18px `.quick-settings` puts round itself. The top and bottom
+   are this file's to match: 12px of row padding on the first and last rows
+   makes the margin the same 18px all four ways round. */
 .ai-usage-header {
-    padding-top: 8px;
-    padding-bottom: 2px;
+    padding-top: 12px;
+    padding-bottom: 6px;
 }
 
 .ai-usage-provider {
@@ -46,9 +97,12 @@
     font-size: 0.9em;
 }
 
+/* The shell's own row, unaltered: `.popup-menu-item { padding: 9px 12px; }`.
+   Said again rather than left to be inherited, because it is a deliberate
+   choice to space these like menu rows and not more tightly. */
 .ai-usage-limit {
-    padding-top: 5px;
-    padding-bottom: 5px;
+    padding-top: 9px;
+    padding-bottom: 9px;
 }
 
 /* Name, reset, percentage. The gap has to be wide enough that a long name and
@@ -107,29 +161,42 @@
     border-radius: 99px;
 }
 
-/* The row sits under a separator, so it needs no rule of its own above it --
-   just enough room that the buttons are not crowded against the last limit. */
+/* Room above, so the buttons are their own thing and not a postscript to the
+   last limit -- they are the only rows here that are not a reading, and
+   nothing but space says so. The 12px below is what, with
+   `.popup-menu-content`'s own 6px, leaves the same 18px under the buttons as
+   `.popup-menu-item`'s 12px leaves to the left and right of every row: an even
+   margin all round, which is what `.quick-settings` gets from its own 18px. */
 .ai-usage-actions {
-    padding-top: 4px;
-    padding-bottom: 2px;
+    padding-top: 12px;
+    padding-bottom: 12px;
 }
 
-/* A rule rather than a trough, as Claude Code's own panel draws it: a few
-   pixels, square, and the empty part barely there -- what the eye should catch
-   is the fill, not the container. The grey is mid enough to sit correctly on a
-   light menu and a dark one alike. */
+/* The shell's own slider, which is the nearest thing it draws to this:
+   `.slider { -barlevel-height: 4px; }`, and pills everywhere else -- so 4px
+   tall with `border-radius: 999px` on the track and on the fill both. The
+   empty part is barely there: what the eye should catch is the fill, not the
+   container, and the grey is mid enough to sit correctly on a light menu and a
+   dark one alike.
+
+   6px above it is `.popup-menu-item`'s own `spacing`, which is the gap the
+   shell puts between the parts of a row. */
 .ai-usage-bar {
     background-color: rgba(127, 127, 127, 0.25);
-    height: 3px;
-    margin-top: 5px;
+    height: 4px;
+    border-radius: 999px;
+    margin-top: 6px;
 }
 
-/* The accent colour is what GNOME 47 and later let the user choose, so a bar
-   that is not warning about anything is drawn in it. The plain blue before it
-   is the fallback for a shell whose CSS does not know -st-accent-color: an
-   unknown value drops the declaration, leaving the one above standing. */
+/* The accent colour is what GNOME 47 and later let the user choose, and it is
+   what the shell's own sliders fill with (`-barlevel-active-background-color`),
+   so a bar that is not warning about anything is drawn in it. The plain blue
+   before it is the fallback for a shell whose CSS does not know
+   -st-accent-color: an unknown value drops the declaration, leaving the one
+   above standing. */
 .ai-usage-bar-fill {
-    height: 3px;
+    height: 4px;
+    border-radius: 999px;
     background-color: #3584e4;
     background-color: -st-accent-color;
 }
@@ -148,5 +215,5 @@
 
 .ai-usage-caption-row {
     padding-top: 2px;
-    padding-bottom: 4px;
+    padding-bottom: 6px;
 }

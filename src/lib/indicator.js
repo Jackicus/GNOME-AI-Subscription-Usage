@@ -29,6 +29,12 @@ const DIM_OPACITY = 160;
 // something says otherwise.
 const DEFAULT_ICON_SIZE = 16;
 
+// `.ai-usage-bar`'s height in the stylesheet, where it is the shell's own
+// `-barlevel-height`. Repeated here because _resize() has to know it: with both
+// ends fully rounded, it is also the narrowest a fill can be drawn and still
+// look like a bar.
+const BAR_HEIGHT = 4;
+
 const SEVERITY_CLASS = {
     [Severity.NORMAL]: 'ai-usage-normal',
     [Severity.WARNING]: 'ai-usage-warning',
@@ -55,10 +61,11 @@ function explain(reading) {
     }
 }
 
-// A rule with a fill across part of it -- a few pixels tall, square, the
-// unfilled part barely there. St has no percentage widths, so the fill is sized
-// against the track's allocation each time that changes, which also covers the
-// pop-up being opened at a different width.
+// A track with a fill across part of it, shaped like the shell's own sliders:
+// four pixels tall, both ends fully rounded, the unfilled part barely there. St
+// has no percentage widths, so the fill is sized against the track's allocation
+// each time that changes, which also covers the pop-up being opened at a
+// different width.
 const UsageBar = GObject.registerClass(
 class UsageBar extends St.BoxLayout {
     // A box rather than an St.Bin, and that is the whole point of it: a bin
@@ -96,9 +103,13 @@ class UsageBar extends St.BoxLayout {
         if (width <= 0)
             return;
         // A limit with anything at all in it gets at least a sliver, so that
-        // "1%" and "0%" do not look identical.
+        // "1%" and "0%" do not look identical. The floor is the bar's own
+        // height, and that is not a coincidence: both ends are fully rounded,
+        // so a fill narrower than its height is a circle with its sides cut
+        // off -- it stops looking like the start of a bar and starts looking
+        // like a rendering fault. At exactly the height it is a full dot.
         const filled = Math.round(width * this._fraction);
-        this._fill.set_width(this._fraction > 0 ? Math.max(2, filled) : 0);
+        this._fill.set_width(this._fraction > 0 ? Math.max(BAR_HEIGHT, filled) : 0);
     }
 });
 
@@ -109,6 +120,16 @@ class UsageIndicator extends PanelMenu.Button {
     // bar apart.
     _init(iconFile, name) {
         super._init(0.5, name ? `${name} usage` : 'AI Usage', false);
+
+        // Two style classes of this extension's own, and neither is decoration:
+        // the button's one condenses the shell's 12px of panel padding, which
+        // around an icon and a short figure leaves the button's edge a long way
+        // from what it is showing; the menu's one is where the pop-up's width
+        // is set, and it goes on `menu.box` because that is the actor the shell
+        // gives `.popup-menu-content` to and so the one every row is laid out
+        // against.
+        this.add_style_class_name('ai-usage-panel-button');
+        this.menu.box.add_style_class_name('ai-usage-menu');
 
         this._box = new St.BoxLayout({style_class: 'ai-usage-panel-box'});
         this._icon = new St.Icon({

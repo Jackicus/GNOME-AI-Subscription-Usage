@@ -32,9 +32,9 @@
 
         <!-- What a button shows -->
         <key name="primary-limit" enum="org.gnome.shell.extensions.ai-usage.primary-limit">
-            <default>'highest'</default>
+            <default>'session'</default>
             <summary>Which limit a button shows</summary>
-            <description>A pop-up always lists every limit; this is the one figure on the button itself. "highest": whichever limit is closest to being used up, which is the one that will stop you first. "session": the current session only. "weekly": the week's own limit, ignoring the per-model ones.</description>
+            <description>A pop-up always lists every limit; this is the one figure on the button itself. "session" is the default: the current session -- Claude's 5-hour window -- is the limit that decides whether you can keep working right now, which is what a glance at the top bar is asking. A provider with no session limit falls back to its highest. "highest": whichever limit is closest to being used up, wherever it comes from. "weekly": the week's own limit, ignoring the per-model ones.</description>
         </key>
         <key name="show-icon" type="b">
             <default>true</default>

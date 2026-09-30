@@ -594,8 +594,11 @@ export class AiUsageApp {
     }
 }
 
-// The button shows one figure; this is which. "highest" is the default because
-// it is the limit that will stop you first, whichever window it belongs to.
+// The button shows one figure; this is which. "session" is the default: the
+// window you are working in right now is what a glance at the top bar is
+// asking about, and the longer limits are a scroll of the eye away in the
+// pop-up. A provider that meters no session falls through to its worst, which
+// is what keeps the default meaningful for Antigravity as well as Claude.
 function pickLimit(reading, mode) {
     switch (mode) {
     case 'session':

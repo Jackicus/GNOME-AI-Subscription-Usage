@@ -70,7 +70,12 @@ SETTLE_SECONDS=35
 # indicator in the top bar for it, and everything to the indicator's left shifts
 # along. The indicator is gone from the pictures, because a screenshot is taken
 # by a later run of the driver, after the one that clicked has exited.
-CLAUDE_BUTTON="1317 16"
+#
+# Anything that changes how wide a button is moves this: the stylesheet's panel
+# padding, the icon size, how many digits the figure has. A stale coordinate
+# does not fail -- it clicks the bar, nothing opens, and the pop-up picture is
+# of the wallpaper. `--keep` prints how to take a fresh `shot` and measure again.
+CLAUDE_BUTTON="1339 16"
 # The preferences window opens centred, so its tabs are at fixed points too.
 TAB_BUTTONS="677 201"
 TAB_READINGS="799 201"
@@ -225,13 +230,19 @@ take_shots() {
     # A strip of the right-hand end, where the buttons go by default. Nothing is
     # clicked first, so this picture has no recording indicator in it at all.
     drive "shot $SHOT_DIR/top-bar$SUFFIX.png 1100 0 500 36"
+    # The tighter crop the README opens with: the two buttons and the icons
+    # either side of them, and no more. Taken from the shell rather than cut out
+    # of the strip above by hand afterwards, because a picture nobody can
+    # regenerate is a picture that goes stale the first time the buttons move --
+    # which is exactly what happened to it. Dark only; the README has one.
+    [[ "$light" == "no" ]] && drive "shot $SHOT_DIR/top-bar-cropped.png 1354 0 244 28"
 
     info "Opening a button's pop-up..."
     drive "click $CLAUDE_BUTTON" "wait 1.5"
     # The recording indicator outlives the process that asked for it by a few
     # seconds, so wait it out rather than photograph the shell mid-tidy. Six is
     # measured: it was still there at four and gone by six.
-    drive "wait 6" "shot $SHOT_DIR/pop-up$SUFFIX.png 1100 0 500 250"
+    drive "wait 6" "shot $SHOT_DIR/pop-up$SUFFIX.png 1085 0 500 320"
     drive "key Escape"
 
     # The preferences are a GTK window and follow their own colour setting
