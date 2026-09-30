@@ -12,14 +12,22 @@ import Gio from 'gi://Gio';
 const PROVIDER_SCHEMA = 'org.gnome.shell.extensions.ai-usage.provider';
 const PROVIDER_PATH = '/org/gnome/shell/extensions/ai-usage/providers';
 
-// The extension's own schemas are not in the system directory, so the source
-// has to be built against the extension's schemas/ -- with the default source
-// as its parent, so a lookup still falls through to the system schemas.
+// The extension's own schemas are not in the system directory, so the source is
+// built against the extension's schemas/ -- with the default source as its
+// parent, so a lookup still falls through to the system schemas.
+//
+// The missing-directory case is the shell's own: a user extension has a
+// schemas/ subfolder, and one installed system-wide in the same prefix as the
+// shell has its schemas in the default source instead. Without this, that
+// second kind of install throws here rather than working.
 function schemaSource(extensionDir) {
+    const defaultSource = Gio.SettingsSchemaSource.get_default();
+    const schemaDir = extensionDir.get_child('schemas');
+    if (!schemaDir.query_exists(null))
+        return defaultSource;
+
     return Gio.SettingsSchemaSource.new_from_directory(
-        extensionDir.get_child('schemas').get_path(),
-        Gio.SettingsSchemaSource.get_default(),
-        false);
+        schemaDir.get_path(), defaultSource, false);
 }
 
 export function providerSettings(extensionDir, providerId) {

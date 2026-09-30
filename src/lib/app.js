@@ -42,6 +42,7 @@ export class AiUsageApp {
         this._cancellable = null;
         this._monitors = [];
         this._settingsIds = [];
+        this._providerSettingsById = new Map();
         this._notified = new Map();   // limit id -> the resets_at it was notified for
     }
 
@@ -75,8 +76,15 @@ export class AiUsageApp {
             this._settings.disconnect(id);
         this._settingsIds = [];
 
-        // Dropping the Gio.Settings objects is what stops their signals.
-        this._providerSettingsById?.clear();
+        // Disconnected by hand rather than left to garbage collection. The
+        // shell disables at lock and enables again at unlock, so a handler
+        // still attached to a surviving Gio.Settings would call into an app
+        // that has already been taken down.
+        for (const {settings, handlerId} of this._providerSettingsById.values()) {
+            if (settings && handlerId)
+                settings.disconnect(handlerId);
+        }
+        this._providerSettingsById.clear();
         this._entries = [];
 
         this._stopWatchingCredentials();
@@ -136,17 +144,16 @@ export class AiUsageApp {
     // Built once per provider and kept: a Gio.Settings that goes out of scope
     // stops delivering its 'changed' signal.
     _providerSettings(id) {
-        if (!this._providerSettingsById)
-            this._providerSettingsById = new Map();
         if (this._providerSettingsById.has(id))
-            return this._providerSettingsById.get(id);
+            return this._providerSettingsById.get(id).settings;
 
         let settings = null;
+        let handlerId = 0;
         try {
             settings = providerSettings(this._extension.dir, id);
             // Any of this provider's switches changing is a reason to rebuild
             // and redraw; only `enabled` needs the figures fetched again.
-            settings.connect('changed', (_s, key) => {
+            handlerId = settings.connect('changed', (_s, key) => {
                 this._buildEntries();
                 if (key === 'enabled')
                     this.refresh();
@@ -156,7 +163,7 @@ export class AiUsageApp {
         } catch (e) {
             Log.error(`Could not open settings for provider '${id}'`, e);
         }
-        this._providerSettingsById.set(id, settings);
+        this._providerSettingsById.set(id, {settings, handlerId});
         return settings;
     }
 
@@ -176,7 +183,7 @@ export class AiUsageApp {
                 if (reread.includes(key))
                     this.refresh();
                 else
-                    this._indicator?.setReadings(this._readings);
+                    this._redraw();
             }));
         }
     }

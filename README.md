@@ -52,12 +52,33 @@ Not on extensions.gnome.org yet.
 make install     # copy src/ into ~/.local/share/gnome-shell/extensions
 ```
 
-A brand-new extension can't be enabled in a running Wayland session, so log out
-and back in the first time, then:
+A brand-new extension cannot be enabled in a running Wayland session, so the
+first time you have to **log out and back in**, then:
 
 ```sh
 gnome-extensions enable ai-usage@jackicus
 ```
+
+After that `make reload` is enough for changes.
+
+### If nothing appears
+
+Take these in order — each rules out one layer:
+
+```sh
+make status      # is it installed, and does the running shell know about it?
+make providers   # can it read the figures at all, outside the shell?
+make logs        # what the shell says about it
+```
+
+`make providers` is the useful one: if it prints your figures then the data
+side is fine and the problem is the button, and if it does not then the button
+was never going to show anything.
+
+The button appears at the right-hand end of the top bar by default. If a
+provider is missing from the pop-up, its command-line tool is not on `PATH` —
+that is deliberate, not a failure. If it says the login has expired, run that
+tool once and the button will catch up within a few seconds.
 
 ## Checking what it sees
 

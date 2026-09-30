@@ -122,9 +122,14 @@ class UsageIndicator extends PanelMenu.Button {
     }
 
     // Shown while the first poll is still out, so the button is never blank.
+    // The visibility has to be set too: the first render happens before any
+    // reading exists and hides the label, so setting only the text showed
+    // nothing at all.
     setBusy() {
-        if (!this._readings.length)
-            this._label.set_text('…');
+        if (this._readings.length)
+            return;
+        this._label.set_text('…');
+        this._label.visible = this._showPercent;
     }
 
     _render() {
