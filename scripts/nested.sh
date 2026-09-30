@@ -23,7 +23,16 @@
 #   * its own D-Bus session, from dbus-launch;
 #   * its own settings, through the keyfile GSettings backend under a scratch
 #     XDG_CONFIG_HOME -- so dconf, and with it every setting of the desktop you
-#     are actually using, is never opened, let alone written;
+#     are actually using, is never opened, let alone written. Any of this
+#     extension's own settings can be tried the same way: append
+#
+#         [org/gnome/shell/extensions/ai-usage]
+#         panel-mode='combined'
+#
+#     to $RUN_DIR/config/glib-2.0/settings/keyfile. The backend watches that
+#     file, so a `--keep` shell picks the change up without a restart -- which
+#     is how the pop-up's actions were checked to be drawn once and not once
+#     per provider;
 #   * its own Wayland socket, so a preferences window opened against it lands
 #     there and not on your desktop;
 #   * only this extension enabled, so anything that goes wrong is ours.
@@ -242,7 +251,7 @@ take_shots() {
     # The recording indicator outlives the process that asked for it by a few
     # seconds, so wait it out rather than photograph the shell mid-tidy. Six is
     # measured: it was still there at four and gone by six.
-    drive "wait 6" "shot $SHOT_DIR/pop-up$SUFFIX.png 1085 0 500 320"
+    drive "wait 6" "shot $SHOT_DIR/pop-up$SUFFIX.png 1085 0 500 260"
     drive "key Escape"
 
     # The preferences are a GTK window and follow their own colour setting

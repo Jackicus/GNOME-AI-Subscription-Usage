@@ -150,10 +150,13 @@ class UsageIndicator extends PanelMenu.Button {
         this._pick = null;      // (reading) => Limit, set by whoever drives us
         this._resetFormat = ResetFormat.AUTO;
 
+        // The pop-up's own title when there is no reading to head it -- see
+        // _renderMenu(), where the actions still have to be reachable.
+        this._name = name || 'AI Usage';
+        this._actions = [];
+
         this._section = new PopupMenu.PopupMenuSection();
         this.menu.addMenuItem(this._section);
-        this._footer = new PopupMenu.PopupMenuSection();
-        this.menu.addMenuItem(this._footer);
     }
 
     // `pick` chooses the limit the button itself shows, and `resetFormat` how
@@ -245,7 +248,12 @@ class UsageIndicator extends PanelMenu.Button {
     _renderMenu() {
         this._section.removeAll();
 
+        // Nothing read yet, or nothing to read: the pop-up still needs a way
+        // to the preferences, which is where a provider gets switched on. So
+        // the empty state gets a header of its own to carry the actions --
+        // this button's name, since there is no provider to name instead.
         if (!this._readings.length) {
+            this._section.addMenuItem(headerItem(this._name, null, this._actions));
             this._section.addMenuItem(captionItem('Reading usage…'));
             return;
         }
@@ -254,13 +262,19 @@ class UsageIndicator extends PanelMenu.Button {
         for (const reading of this._readings) {
             if (!first)
                 this._section.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
+            this._addReading(reading, first);
             first = false;
-            this._addReading(reading);
         }
     }
 
-    _addReading(reading) {
-        this._section.addMenuItem(headerItem(reading.displayName, reading.plan));
+    // `withActions` is true for the first reading in the pop-up and no other.
+    // The actions belong to the pop-up rather than to any one provider --
+    // refresh reads every provider, and there is one preferences window -- so
+    // in `combined` mode, where several providers share one pop-up, they are
+    // drawn on the first header and nowhere else.
+    _addReading(reading, withActions) {
+        this._section.addMenuItem(headerItem(reading.displayName, reading.plan,
+            withActions ? this._actions : null));
 
         if (!reading.ok) {
             this._section.addMenuItem(captionItem(explain(reading)));
@@ -286,39 +300,28 @@ class UsageIndicator extends PanelMenu.Button {
             this._section.addMenuItem(captionItem(breakdown));
     }
 
-    // The actions below the providers -- a refresh and the preferences -- are
-    // set by the caller, which owns both. They are drawn the way Quick Settings
-    // draws its own: a right-aligned row of circular icon buttons, which is the
-    // shape a GNOME menu's actions have, rather than two more full-width rows
-    // that would read as more limits.
-    setFooter(items) {
-        this._footer.removeAll();
-        if (!items.length)
-            return;
-        this._footer.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
-
-        const row = inertItem('ai-usage-actions');
-        const buttons = new St.BoxLayout({
-            style_class: 'ai-usage-action-row',
-            x_expand: true,
-            x_align: Clutter.ActorAlign.END,
-        });
-        for (const {label, icon, action} of items)
-            buttons.add_child(actionButton(label, icon, action));
-        row.add_child(buttons);
-        this._footer.addMenuItem(row);
+    // The actions -- a refresh and the preferences -- are set by the caller,
+    // which owns both. They are drawn at the right-hand end of the first
+    // header, the way Claude Code's own usage panel puts an arrow level with
+    // its title and Quick Settings puts one at the end of a slider row: no row
+    // of their own, and so no height of their own.
+    setActions(items) {
+        this._actions = items ?? [];
+        this._renderMenu();
     }
 });
 
-// An action as Quick Settings draws one. `icon-button` is the shell's own
-// class, not an imitation of it: taking it means the hover, focus, :insensitive
-// and :checked states, and how all four behave on a light menu and a dark one,
-// come from the theme and keep coming from it when the theme changes. Only what
-// `.quick-settings` adds to that class has to be said again here, since this
-// menu is not inside one -- see the stylesheet.
+// An action as the shell draws one, copied from the arrow at the end of a
+// Quick Settings slider row -- `St.Button`, `icon-button flat`, an `St.Icon`
+// with no class of its own. Both classes are the shell's own, not an imitation
+// of them: `icon-button` brings the hover, focus, :insensitive and :checked
+// states and the icon's size, `flat` makes the resting background the menu's
+// own so that nothing is drawn round the glyph until it is pointed at, and all
+// of it goes on coming from the theme when the theme changes.
 //
 // The label becomes the accessible name, because an icon on its own says
-// nothing at all to a screen reader.
+// nothing at all to a screen reader -- and there is now not even a filled
+// shape to find.
 //
 // Whether an action closes the pop-up is the action's own business and stays
 // with the caller: a refresh leaves it open, because its whole point is the
@@ -326,10 +329,11 @@ class UsageIndicator extends PanelMenu.Button {
 // close it, because a window is about to open over it.
 function actionButton(label, iconName, action) {
     const button = new St.Button({
-        style_class: 'icon-button',
+        style_class: 'icon-button flat',
         can_focus: true,
         accessible_name: label,
-        child: new St.Icon({icon_name: iconName, style_class: 'popup-menu-icon'}),
+        y_align: Clutter.ActorAlign.CENTER,
+        child: new St.Icon({icon_name: iconName}),
     });
     button.connect('clicked', () => action());
     return button;
@@ -351,20 +355,51 @@ function inertItem(styleClass) {
     return item;
 }
 
-function headerItem(name, plan) {
+// The provider's name, the plan dimmed beside it, and -- on the first header in
+// the pop-up only -- the pop-up's actions hard right. That is the shape Claude
+// Code's own usage panel has, and it is what lets the actions cost no height:
+// the row was already here.
+//
+// Exactly one thing in the row expands, and it is the plan, so all the slack
+// lands between the plan and the buttons and the buttons sit against the right
+// edge. With no plan the name takes that job instead.
+function headerItem(name, plan, actions) {
     const item = inertItem('ai-usage-header');
-    const row = new St.BoxLayout({x_expand: true});
-    row.add_child(new St.Label({text: name, style_class: 'ai-usage-provider'}));
+    const row = new St.BoxLayout({style_class: 'ai-usage-header-row', x_expand: true});
+
+    const nameLabel = new St.Label({
+        text: name,
+        style_class: 'ai-usage-provider',
+        y_align: Clutter.ActorAlign.CENTER,
+    });
+    row.add_child(nameLabel);
+
     if (plan) {
         const planLabel = new St.Label({
             text: plan,
             style_class: 'ai-usage-plan',
             x_expand: true,
-            x_align: Clutter.ActorAlign.END,
+            x_align: Clutter.ActorAlign.START,
+            y_align: Clutter.ActorAlign.CENTER,
         });
         planLabel.opacity = DIM_OPACITY;
         row.add_child(planLabel);
+    } else {
+        nameLabel.x_expand = true;
+        nameLabel.x_align = Clutter.ActorAlign.START;
     }
+
+    if (actions?.length) {
+        const buttons = new St.BoxLayout({
+            style_class: 'ai-usage-action-row',
+            x_align: Clutter.ActorAlign.END,
+            y_align: Clutter.ActorAlign.CENTER,
+        });
+        for (const {label, icon, action} of actions)
+            buttons.add_child(actionButton(label, icon, action));
+        row.add_child(buttons);
+    }
+
     item.add_child(row);
     return item;
 }
