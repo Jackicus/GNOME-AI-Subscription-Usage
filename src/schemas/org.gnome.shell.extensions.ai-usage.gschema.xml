@@ -14,6 +14,12 @@
         <value nick="center" value="1"/>
         <value nick="right" value="2"/>
     </enum>
+    <enum id="org.gnome.shell.extensions.ai-usage.reset-format">
+        <value nick="auto" value="0"/>
+        <value nick="relative" value="1"/>
+        <value nick="absolute" value="2"/>
+        <value nick="both" value="3"/>
+    </enum>
 
     <schema path="/org/gnome/shell/extensions/ai-usage/" id="org.gnome.shell.extensions.ai-usage">
 
@@ -34,6 +40,13 @@
             <default>true</default>
             <summary>Show the percentage beside the icon</summary>
             <description>With this off a button is its icon alone, tinted by how much has been used, and the figures are in the pop-up.</description>
+        </key>
+
+        <!-- What the pop-up says -->
+        <key name="reset-format" enum="org.gnome.shell.extensions.ai-usage.reset-format">
+            <default>'auto'</default>
+            <summary>How a reset time is worded</summary>
+            <description>"auto" is what Claude Code's own usage panel does, and the default here: a countdown while the reset is less than a day away ("Resets in 1 hr 1 min"), and a weekday and wall-clock time beyond that ("Resets Tue 3:00 PM"). "relative" is always the countdown, "absolute" always the time, and "both" is the countdown with the time after it in brackets. The time is in your own timezone, on the 12- or 24-hour clock your desktop is set to. Notifications use the same wording.</description>
         </key>
 
         <!-- Where the buttons sit -->

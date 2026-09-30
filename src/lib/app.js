@@ -29,7 +29,7 @@ import {Http} from './http.js';
 import {UsageIndicator} from './indicator.js';
 import {allProviders} from './providers/registry.js';
 import {PanelMode, applyOptions, displayOptions, providerSettings} from './settings.js';
-import {Status} from './usage.js';
+import {ResetFormat, Status, formatReset} from './usage.js';
 import * as Log from './log.js';
 
 const PANEL_BOXES = {left: 'left', center: 'center', right: 'right'};
@@ -63,6 +63,10 @@ export class AiUsageApp {
         this._panelMode = PanelMode.PER_PROVIDER;
         this._showPercent = true;
         this._pick = reading => reading.worst;
+        // How a reset time is worded, in the pop-ups and in the notifications
+        // alike -- they are the same sentence, so they go through the same
+        // function and answer to the same setting.
+        this._resetFormat = ResetFormat.AUTO;
 
         this._timerId = 0;
         this._debounceId = 0;
@@ -136,12 +140,13 @@ export class AiUsageApp {
             : PanelMode.PER_PROVIDER;
         this._showPercent = s.get_boolean('show-percent');
         this._pick = reading => pickLimit(reading, limitMode);
+        this._resetFormat = s.get_string('reset-format');
 
         // The panel mode has to be settled first: it decides both what buttons
         // _buildEntries() ends up asking for and what `show-in-panel` means.
         this._buildEntries();
         for (const {indicator} of this._buttons.values()) {
-            indicator.configure({showPercent: this._showPercent, pick: this._pick});
+            indicator.configure({showPercent: this._showPercent, pick: this._pick, resetFormat: this._resetFormat});
             // configure() redraws, which blanks the label of a button that has
             // nothing to draw yet. setBusy() puts the ellipsis back, and does
             // nothing at all once figures have arrived.
@@ -207,7 +212,7 @@ export class AiUsageApp {
         // 'panel-mode' needs no relayout of its own: changing it changes which
         // buttons are wanted, and _syncButtons() tears down the old
         // arrangement, builds the other and places it.
-        for (const key of [...relayout, ...reread, 'panel-mode', 'primary-limit', 'show-percent', 'poll-seconds', 'poll-when-idle', 'notify-percent']) {
+        for (const key of [...relayout, ...reread, 'panel-mode', 'primary-limit', 'show-percent', 'reset-format', 'poll-seconds', 'poll-when-idle', 'notify-percent']) {
             this._settingsIds.push(this._settings.connect(`changed::${key}`, () => {
                 this._applySettings();
                 if (relayout.includes(key))
@@ -315,7 +320,7 @@ export class AiUsageApp {
                 this.refresh();
         });
 
-        indicator.configure({showPercent: this._showPercent, pick: this._pick});
+        indicator.configure({showPercent: this._showPercent, pick: this._pick, resetFormat: this._resetFormat});
         // Figures for a button built mid-session are a poll away, and a blank
         // button in the meantime looks broken.
         indicator.setBusy();
@@ -563,9 +568,14 @@ export class AiUsageApp {
                     continue;
                 this._notified.set(key, window);
 
-                const when = limit.resetsAt ? `, ${formatResetPlain(limit.resetsAt)}` : '';
+                // The same sentence the pop-up shows, from the same function
+                // and the same setting -- as its own sentence here, because
+                // "Resets" is capitalised where it starts one.
+                const when = limit.resetsAt
+                    ? ` ${formatReset(limit.resetsAt, {format: this._resetFormat})}.`
+                    : '';
                 Main.notify(`${reading.displayName} usage at ${Math.round(limit.percent)}%`,
-                    `${limit.label}${when}.`);
+                    `${limit.label}.${when}`);
             }
         }
     }
@@ -606,9 +616,4 @@ function panelBox(name) {
     default:
         return Main.panel._rightBox;
     }
-}
-
-function formatResetPlain(resetsAt) {
-    const local = resetsAt.to_local();
-    return `resets ${local.format('%H:%M on %A')}`;
 }

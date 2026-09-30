@@ -45,10 +45,13 @@ const CLI = 'claude';
 // is a real limit worth showing rather than something internal.
 const KIND_ORDER = ['session', 'weekly_all', 'weekly_scoped'];
 
+// Claude Code's own words for these rows, so that the pop-up and the terminal
+// name the same limit the same way. They are Claude's and no one else's: the
+// other providers keep their own wording.
 const KIND_LABELS = {
-    session: 'Current session',
-    weekly_all: 'This week',
-    weekly_scoped: 'This week',   // qualified by the model it is scoped to
+    session: '5-hour limit',
+    weekly_all: 'Weekly · all models',
+    weekly_scoped: 'Weekly',   // qualified by the model it is scoped to
 };
 
 export const ClaudeProvider = {
@@ -192,8 +195,8 @@ function limitFromRow(row, thresholds) {
 function labelForRow(kind, row) {
     const base = KIND_LABELS[kind] ?? humanise(kind);
     // A scoped limit is only meaningful with its scope named: two rows both
-    // saying "This week" at different percentages would read as a bug. The
-    // scope is usually a model; a surface is the other shape seen.
+    // saying "Weekly" at different percentages would read as a bug. The scope
+    // is usually a model; a surface is the other shape seen.
     const scope = row?.scope?.model?.display_name ?? row?.scope?.surface?.display_name;
     return scope ? `${base} · ${scope}` : base;
 }
@@ -202,10 +205,10 @@ function labelForRow(kind, row) {
 // again. Same numbers, less metadata.
 function limitsFromWindows(body, thresholds) {
     const windows = [
-        ['session', 'Current session', body?.five_hour, false],
-        ['weekly_all', 'This week', body?.seven_day, false],
-        ['weekly_opus', 'This week · Opus', body?.seven_day_opus, true],
-        ['weekly_sonnet', 'This week · Sonnet', body?.seven_day_sonnet, true],
+        ['session', KIND_LABELS.session, body?.five_hour, false],
+        ['weekly_all', KIND_LABELS.weekly_all, body?.seven_day, false],
+        ['weekly_opus', `${KIND_LABELS.weekly_scoped} · Opus`, body?.seven_day_opus, true],
+        ['weekly_sonnet', `${KIND_LABELS.weekly_scoped} · Sonnet`, body?.seven_day_sonnet, true],
     ];
 
     const limits = [];
@@ -366,16 +369,21 @@ function tierString(value) {
     return typeof value === 'string' && value ? value : null;
 }
 
-// "default_claude_max_5x" -> "Max 5x". Cosmetic, and dropped entirely if no
-// source yields a shape we recognise, since a wrong plan name is worse than
-// none. The live tier first, then the one frozen into the credentials at
-// sign-in, then the bare subscription name.
+// "default_claude_max_5x" -> "Max (5x)", which is how Claude Code's own usage
+// panel writes it. Cosmetic, and dropped entirely if no source yields a shape
+// we recognise, since a wrong plan name is worse than none. The live tier
+// first, then the one frozen into the credentials at sign-in, then the bare
+// subscription name.
 export function planLabel(auth) {
     const tier = tierString(auth?.accountTier) ?? tierString(auth?.rateLimitTier);
     if (tier) {
         const cleaned = tier.replace(/^default_claude_/, '').replace(/_/g, ' ').trim();
-        if (cleaned)
-            return cleaned.replace(/^\w/, c => c.toUpperCase());
+        if (cleaned) {
+            // The multiplier is bracketed and the rest is left alone, so a tier
+            // that carries no multiplier -- "pro" -- still comes out as "Pro".
+            return cleaned.replace(/^\w/, c => c.toUpperCase())
+                .replace(/ (\d+x)$/, ' ($1)');
+        }
     }
     const type = auth?.subscriptionType;
     if (typeof type === 'string' && type)

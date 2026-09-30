@@ -58,6 +58,20 @@ export default class AiUsagePreferences extends ExtensionPreferences {
             'With this off a button is its icon alone, tinted by how much has been used.'));
         page.add(shown);
 
+        const popup = new Adw.PreferencesGroup({
+            title: 'The pop-up',
+            description: 'Every limit carries the time it resets. This is how that time is worded, in the pop-ups '
+                + 'and in the notifications alike. An exact time is in your own timezone, on the clock your desktop '
+                + 'is set to.',
+        });
+        popup.add(comboRow(settings, 'reset-format', 'Reset times', [
+            ['auto', 'Automatic — a countdown when it is close, a time when it is not'],
+            ['relative', 'How long until it resets'],
+            ['absolute', 'The time it resets'],
+            ['both', 'Both'],
+        ]));
+        page.add(popup);
+
         const place = new Adw.PreferencesGroup({
             title: 'Where they sit',
             description: 'The buttons go side by side in the chosen end of the top bar. Which neighbours they land '

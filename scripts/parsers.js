@@ -17,7 +17,7 @@ import {PanelMode, applyOptions, displayOptions} from '../src/lib/settings.js';
 import {AntigravityProvider} from '../src/lib/providers/antigravity.js';
 import {ClaudeProvider, planLabel, readAccountTier} from '../src/lib/providers/claude.js';
 import {CodexProvider} from '../src/lib/providers/codex.js';
-import {Status, formatPercent} from '../src/lib/usage.js';
+import {ResetFormat, Status, formatBreakdown, formatPercent, formatReset} from '../src/lib/usage.js';
 
 const THRESHOLDS = {warn: 80, critical: 95};
 
@@ -56,13 +56,17 @@ print('\x1b[1mClaude\x1b[0m — tests/fixtures/claude-usage.json');
         {rateLimitTier: 'default_claude_max_5x'});
 
     check('status', reading.status, Status.OK);
-    check('plan label from the rate limit tier', reading.plan, 'Max 5x');
+    check('plan label from the rate limit tier', reading.plan, 'Max (5x)');
     check('limits found', reading.limits.length, 3);
     check('ordered session first', reading.limits[0].id, 'session');
     check('session percent', formatPercent(reading.limits[0].percent), '50%');
     check('severity from the response (warning)', reading.limits[1].severity, 'warning');
     check('severity from the response (critical)', reading.limits[2].severity, 'critical');
-    check('per-model row is labelled', reading.limits[2].label, 'This week · Fable');
+    // Claude Code's own words for these rows, so the pop-up and the terminal
+    // name the same limit the same way (issue #20).
+    check('session row takes Claude Code\'s words', reading.limits[0].label, '5-hour limit');
+    check('the weekly row too', reading.limits[1].label, 'Weekly · all models');
+    check('per-model row is labelled', reading.limits[2].label, 'Weekly · Fable');
     check('per-model row is marked scoped', reading.limits[2].scoped, true);
     check('whole-account row is not scoped', reading.limits[1].scoped, false);
     check('active limit marked', reading.limits[2].active, true);
@@ -110,9 +114,13 @@ print('\n\x1b[1mClaude\x1b[0m — the plan name, and which file it comes from');
     const stale = {rateLimitTier: 'default_claude_max_5x', subscriptionType: 'max'};
 
     check('the account file is read', live, 'default_claude_max_20x');
-    check('max_20x humanises', planLabel({accountTier: live}), 'Max 20x');
-    check('it beats the stale credentials tier', planLabel({...stale, accountTier: live}), 'Max 20x');
-    check('which on its own would have said', planLabel(stale), 'Max 5x');
+    check('max_20x humanises', planLabel({accountTier: live}), 'Max (20x)');
+    check('it beats the stale credentials tier', planLabel({...stale, accountTier: live}), 'Max (20x)');
+    check('which on its own would have said', planLabel(stale), 'Max (5x)');
+    // Claude Code writes the multiplier in brackets (issue #20), and only the
+    // multiplier: a tier that has none must not grow a pair.
+    check('a tier with no multiplier is left alone',
+        planLabel({accountTier: 'default_claude_pro'}), 'Pro');
 
     // A personal account carries no organisation tier, so its own is taken.
     check('userRateLimitTier when there is no org tier',
@@ -133,7 +141,7 @@ print('\n\x1b[1mClaude\x1b[0m — the plan name, and which file it comes from');
     for (const [what, text] of [['absent', null], ['unparseable', '{"oauthAcc'],
         ['without oauthAccount', '{}']]) {
         check(`${what} falls back to the credentials`,
-            planLabel({...stale, accountTier: accountTier(text)}), 'Max 5x');
+            planLabel({...stale, accountTier: accountTier(text)}), 'Max (5x)');
     }
     check('with no tier anywhere, the subscription name',
         planLabel({subscriptionType: 'max', accountTier: accountTier(null)}), 'Max');
@@ -142,11 +150,74 @@ print('\n\x1b[1mClaude\x1b[0m — the plan name, and which file it comes from');
     // And the whole way through, on a real response.
     const reading = parse(ClaudeProvider, fixture('claude-usage.json'),
         {...stale, accountTier: live});
-    check('the reading carries the live plan', reading.plan, 'Max 20x');
+    check('the reading carries the live plan', reading.plan, 'Max (20x)');
 
     for (const file of written)
         file.delete(null);
     Gio.File.new_for_path(dir).delete(null);
+}
+
+// How a reset is worded. Pinned against a fixed moment, in a fixed timezone,
+// with the clock setting passed in: the wording is the whole point of the
+// setting, and the machine's own timezone and clock would make every expected
+// string here a moving target. Everything that ships passes none of the three
+// and gets the real ones.
+print('\n\x1b[1mReset times\x1b[0m — the four reset-format values, against a fixed moment');
+{
+    const utc = GLib.TimeZone.new_utc();
+    const at = text => GLib.DateTime.new_from_iso8601(text, null);
+
+    // Wednesday 30 September 2026, 13:59 UTC. An hour and a minute before one
+    // reset, and six days before the fixture's weekly one, which falls on the
+    // Tuesday.
+    const now = at('2026-09-30T13:59:00+00:00');
+    const soon = at('2026-09-30T15:00:00+00:00');
+    const far = at('2026-10-06T14:00:00+00:00');
+    const say = (resetsAt, format, clock = '12h') =>
+        formatReset(resetsAt, {format, now, clock, timezone: utc});
+
+    // Claude Code's own two sentences, down to "hr" and "min" (issues #13, #20).
+    check('auto: a countdown while it is near', say(soon, ResetFormat.AUTO), 'Resets in 1 hr 1 min');
+    check('auto: a wall clock once it is not', say(far, ResetFormat.AUTO), 'Resets Tue 2:00 PM');
+    check('relative keeps the countdown far out', say(far, ResetFormat.RELATIVE), 'Resets in 6 days');
+    check('absolute gives the time close in', say(soon, ResetFormat.ABSOLUTE), 'Resets 3:00 PM');
+    check('both, with the time in brackets', say(far, ResetFormat.BOTH), 'Resets in 6 days (Tue 2:00 PM)');
+    check('auto is what a caller gets by default',
+        formatReset(far, {now, clock: '12h', timezone: utc}), 'Resets Tue 2:00 PM');
+
+    // A day name on something happening this afternoon reads as another day.
+    check('no day name when it is today', say(soon, ResetFormat.ABSOLUTE), 'Resets 3:00 PM');
+    check('a day name when it is not', say(far, ResetFormat.ABSOLUTE), 'Resets Tue 2:00 PM');
+
+    // The desktop's own 12/24-hour setting, never a hardcoded one.
+    check('a 24-hour desktop', say(far, ResetFormat.ABSOLUTE, '24h'), 'Resets Tue 14:00');
+    check('a 12-hour one', say(far, ResetFormat.ABSOLUTE, '12h'), 'Resets Tue 2:00 PM');
+
+    check('under a minute still says something',
+        say(at('2026-09-30T13:59:30+00:00'), ResetFormat.RELATIVE), 'Resets in 1 min');
+    check('minutes on their own', say(at('2026-09-30T14:44:00+00:00'), ResetFormat.RELATIVE), 'Resets in 45 min');
+    check('a whole number of hours drops the minutes',
+        say(at('2026-09-30T15:59:00+00:00'), ResetFormat.RELATIVE), 'Resets in 2 hr');
+    check('a reset already past', say(at('2026-09-30T13:00:00+00:00'), ResetFormat.AUTO), 'Resets now');
+    check('an open-ended limit has no sentence', formatReset(null), null);
+}
+
+// The breakdown line. It sits directly under a row that IS a limit, so it must
+// not read as another one -- and one surviving row is 100% by definition and
+// reports nothing at all (issue #14). The provider goes on reporting every row
+// it knows, as the rest of them do; the rule is the renderer's.
+print('\n\x1b[1mThe breakdown line\x1b[0m — quiet until it has something to report');
+{
+    const reading = parse(ClaudeProvider, fixture('claude-usage.json'), {});
+    check('the provider still reports its one row', reading.breakdown.length, 1);
+    check('but one surface earns no line', formatBreakdown(reading.breakdown), null);
+
+    const mixed = [{label: 'Claude Code', percent: 60}, {label: 'Chats', percent: 40}];
+    check('two surfaces do', formatBreakdown(mixed),
+        'Where this week went: Claude Code 60% · Chats 40%');
+    check('and it does not open with a figure', /^[A-Za-z]/.test(formatBreakdown(mixed)), true);
+    check('an empty breakdown is silent', formatBreakdown([]), null);
+    check('and a missing one does not throw', formatBreakdown(undefined), null);
 }
 
 print('\n\x1b[1mCodex\x1b[0m — tests/fixtures/codex-usage.json  \x1b[2m(shape only; never seen live)\x1b[0m');
@@ -248,7 +319,7 @@ print('\n\x1b[1mHostile shapes\x1b[0m — a wrong number is worse than no number
     }, {});
     check('claude drops a null percent', claude.limits.length, 2);
     check('claude keeps the real one', formatPercent(claude.limits[0].percent), '42%');
-    check('a surface-scoped row is named', claude.limits[1].label, 'This week · Cowork');
+    check('a surface-scoped row is named', claude.limits[1].label, 'Weekly · Cowork');
     check('and counts as scoped, so it can be hidden', claude.limits[1].scoped, true);
 
     const credits = parse(ClaudeProvider, {

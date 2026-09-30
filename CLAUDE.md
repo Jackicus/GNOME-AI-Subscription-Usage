@@ -198,6 +198,40 @@ Each button's icon is `provider.icon` resolved to `icons/<name>.svg`, falling
 back to `icons/ai-usage-symbolic.svg` when the property is absent or the file is
 not there — so a provider with no icon of its own still gets a button.
 
+### The pop-up
+
+It is laid out the way Claude Code's own `/usage` panel is, because these are
+Claude Code's figures and a second opinion is exactly what this is not meant to
+look like. One row per limit: the name hard left, the reset dimmed and
+right-aligned beside it, the percentage hard right, and a thin rule — not a
+trough — under all three.
+
+Three columns line up between rows only if they are made to. **Exactly one
+column expands** — the name — so it absorbs all the slack, and the percentage
+sits in a cell with a `min-width` of its own with the figure aligned to the end
+of it. That fixes the right edge of the figures and, because the cell is a fixed
+size, the reset column's right edge as well. The width is in `em`, so it still
+holds `100%` on a desktop with the text scaled up.
+
+`reset-format` decides the wording, in the pop-ups and the notifications alike —
+they are the same sentence, from the same `formatReset()`. `auto` is the default
+because it is what Claude Code does: a countdown under a day (`Resets in 1 hr 1
+min`), a weekday and wall-clock time beyond it (`Resets Tue 3:00 PM`), in the
+user's own timezone and on the clock `org.gnome.desktop.interface clock-format`
+says the desktop is set to, falling back to 24-hour. `relative`, `absolute` and
+`both` are the three fixed choices. The function takes `now`, `clock` and
+`timezone` for the parser checks alone; nothing that ships passes them.
+
+Claude Code's row labels (`5-hour limit`, `Weekly · all models`, `Weekly ·
+Fable`) and its plan format (`Max (20x)`) are **Claude's**, so they live in
+`claude.js`; the other providers keep their own words.
+
+The breakdown line is worded so it cannot be read as a limit, and shows only
+when two or more surfaces are above zero — a single row is 100% by definition
+and reports nothing. That rule is `formatBreakdown()` in `usage.js`, called by
+the renderer: providers go on reporting every row they know, as the rest of them
+do.
+
 `prefs.js` runs in its own process and can only load modules clear of St and of
 `resource://` paths. The registry and `settings.js` are deliberately kept that
 way — `claude.js` reads `e.status` duck-typed rather than importing `HttpError`,
@@ -230,7 +264,8 @@ not exist, and fails for any input at all.)
 
 * **St has no CSS `opacity` and no percentage widths.** Secondary text is dimmed
   with actor opacity from `indicator.js`; the bar fill is sized against the
-  track's allocation on `notify::width`.
+  track's allocation on `notify::width`. It does have `min-width`, which is what
+  holds the pop-up's percentage column still.
 * **Menus follow the light/dark preference**, so no foreground colour is
   hardcoded. The one flat colour needed — the empty part of a bar — is a mid
   grey that sits correctly on either.
