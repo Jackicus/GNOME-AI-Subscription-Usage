@@ -9,6 +9,9 @@
 #                                      to drive it by hand
 #   ./scripts/dev.sh shots             headless: load it, drive it, and write
 #                                      docs/screenshots/
+#   ./scripts/dev.sh shots --light     the same, with the throwaway shell set to
+#                                      the light preference: the top bar and a
+#                                      pop-up, as *-light.png
 #
 # Why this exists: a UUID the running shell has never seen cannot be enabled in
 # a Wayland session, so the first run of a new extension otherwise costs a log
@@ -81,12 +84,14 @@ die()   { printf '\033[1;31m✗\033[0m %s\n' "$*" >&2; exit 1; }
 mode="headless"
 keep="no"
 shots="no"
+light="no"
 for arg in "$@"; do
     case "$arg" in
         --window)  mode="window" ;;
         --keep)    keep="yes" ;;
         --shots)   shots="yes" ;;
-        *)         die "Unknown option '$arg'. Try --window, --keep or --shots." ;;
+        --light)   light="yes" ;;
+        *)         die "Unknown option '$arg'. Try --window, --keep, --shots or --light." ;;
     esac
 done
 
@@ -116,6 +121,21 @@ enabled-extensions=['$UUID']
 disable-user-extensions=false
 welcome-dialog-last-shown-version='99.0'
 EOF
+
+# Nothing in the pop-up hardcodes a foreground colour, which is only worth
+# anything if it has been looked at both ways round. Because the throwaway
+# shell's settings are that one file, the other way round is these two lines --
+# and the pictures are named apart so a run in one theme does not overwrite the
+# other's.
+SUFFIX=""
+if [[ "$light" == "yes" ]]; then
+    cat >> "$RUN_DIR/config/glib-2.0/settings/keyfile" <<EOF
+
+[org/gnome/desktop/interface]
+color-scheme='prefer-light'
+EOF
+    SUFFIX="-light"
+fi
 
 cleanup() {
     [[ -n "${PREFS_PID:-}" ]] && kill "$PREFS_PID" 2>/dev/null
@@ -204,15 +224,23 @@ take_shots() {
     info "Photographing the top bar..."
     # A strip of the right-hand end, where the buttons go by default. Nothing is
     # clicked first, so this picture has no recording indicator in it at all.
-    drive "shot $SHOT_DIR/top-bar.png 1100 0 500 36"
+    drive "shot $SHOT_DIR/top-bar$SUFFIX.png 1100 0 500 36"
 
     info "Opening a button's pop-up..."
     drive "click $CLAUDE_BUTTON" "wait 1.5"
     # The recording indicator outlives the process that asked for it by a few
     # seconds, so wait it out rather than photograph the shell mid-tidy. Six is
     # measured: it was still there at four and gone by six.
-    drive "wait 6" "shot $SHOT_DIR/pop-up.png 1100 0 500 285"
+    drive "wait 6" "shot $SHOT_DIR/pop-up$SUFFIX.png 1100 0 500 250"
     drive "key Escape"
+
+    # The preferences are a GTK window and follow their own colour setting
+    # rather than the shell's, so photographing them again in the other theme
+    # would give the same three pictures under different names.
+    if [[ "$light" == "yes" ]]; then
+        report_shots
+        return
+    fi
 
     info "Opening the preferences..."
     open_prefs
@@ -226,6 +254,10 @@ take_shots() {
     drive "click $TAB_PROVIDERS" "wait 1"
     drive "window $SHOT_DIR/preferences-providers.png"
 
+    report_shots
+}
+
+report_shots() {
     echo
     printf '\033[1m%s\033[0m\n' "Screenshots"
     local shot

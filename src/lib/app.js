@@ -28,7 +28,7 @@ import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import {Http} from './http.js';
 import {UsageIndicator} from './indicator.js';
 import {allProviders} from './providers/registry.js';
-import {PanelMode, applyOptions, displayOptions, providerSettings} from './settings.js';
+import {PanelMode, applyOptions, buttonOptions, displayOptions, providerSettings} from './settings.js';
 import {ResetFormat, Status, formatReset} from './usage.js';
 import * as Log from './log.js';
 
@@ -61,7 +61,10 @@ export class AiUsageApp {
         // built later -- a provider switched on mid-session -- starts out
         // configured like the rest.
         this._panelMode = PanelMode.PER_PROVIDER;
-        this._showPercent = true;
+        // What each button is made of -- the icon, the figure, the icon's size
+        // -- with the rule that stops both of the first two being off already
+        // applied to it.
+        this._button = {showIcon: true, showPercent: true, iconSize: 16};
         this._pick = reading => reading.worst;
         // How a reset time is worded, in the pop-ups and in the notifications
         // alike -- they are the same sentence, so they go through the same
@@ -138,7 +141,7 @@ export class AiUsageApp {
         this._panelMode = s.get_string('panel-mode') === PanelMode.COMBINED
             ? PanelMode.COMBINED
             : PanelMode.PER_PROVIDER;
-        this._showPercent = s.get_boolean('show-percent');
+        this._button = buttonOptions(s);
         this._pick = reading => pickLimit(reading, limitMode);
         this._resetFormat = s.get_string('reset-format');
 
@@ -146,7 +149,7 @@ export class AiUsageApp {
         // _buildEntries() ends up asking for and what `show-in-panel` means.
         this._buildEntries();
         for (const {indicator} of this._buttons.values()) {
-            indicator.configure({showPercent: this._showPercent, pick: this._pick, resetFormat: this._resetFormat});
+            indicator.configure({...this._button, pick: this._pick, resetFormat: this._resetFormat});
             // configure() redraws, which blanks the label of a button that has
             // nothing to draw yet. setBusy() puts the ellipsis back, and does
             // nothing at all once figures have arrived.
@@ -212,7 +215,7 @@ export class AiUsageApp {
         // 'panel-mode' needs no relayout of its own: changing it changes which
         // buttons are wanted, and _syncButtons() tears down the old
         // arrangement, builds the other and places it.
-        for (const key of [...relayout, ...reread, 'panel-mode', 'primary-limit', 'show-percent', 'reset-format', 'poll-seconds', 'poll-when-idle', 'notify-percent']) {
+        for (const key of [...relayout, ...reread, 'panel-mode', 'primary-limit', 'show-icon', 'show-percent', 'icon-size', 'reset-format', 'poll-seconds', 'poll-when-idle', 'notify-percent']) {
             this._settingsIds.push(this._settings.connect(`changed::${key}`, () => {
                 this._applySettings();
                 if (relayout.includes(key))
@@ -312,19 +315,25 @@ export class AiUsageApp {
             return null;
         }
 
-        // Every pop-up carries the same two items. Refresh reads every live
-        // provider, not just this button's: the request is per provider, but a
-        // person asking for a refresh means all of it.
+        // Every pop-up carries the same two actions, drawn as Quick Settings
+        // draws its own. Refresh reads every live provider, not just this
+        // button's: the request is per provider, but a person asking for a
+        // refresh means all of it, and the pop-up stays open so that the
+        // figures can be watched changing. The preferences close it, since a
+        // window is about to open where it is.
         indicator.setFooter([
-            {label: 'Refresh now', action: () => this.refresh()},
-            {label: 'Preferences', action: () => this._extension.openPreferences()},
+            {label: 'Refresh now', icon: 'view-refresh-symbolic', action: () => this.refresh()},
+            {label: 'Preferences', icon: 'emblem-system-symbolic', action: () => {
+                indicator.menu.close(true);
+                this._extension.openPreferences();
+            }},
         ]);
         const menuId = indicator.menu.connect('open-state-changed', (_menu, open) => {
             if (open)
                 this.refresh();
         });
 
-        indicator.configure({showPercent: this._showPercent, pick: this._pick, resetFormat: this._resetFormat});
+        indicator.configure({...this._button, pick: this._pick, resetFormat: this._resetFormat});
         // Figures for a button built mid-session are a poll away, and a blank
         // button in the meantime looks broken.
         indicator.setBusy();

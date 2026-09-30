@@ -16,7 +16,8 @@
 #                               extension can be seen without logging out
 #   ./scripts/dev.sh shots      the same throwaway shell, driven: open a button's
 #                               pop-up and the preferences, and write the
-#                               pictures to docs/screenshots/
+#                               pictures to docs/screenshots/; '--light' does the
+#                               top bar and the pop-up again in a light shell
 #   ./scripts/dev.sh assets     check that every icon that ships loads as one,
 #                               and that every icon a provider asks for is there
 #   ./scripts/dev.sh imports    check that the preferences can still load what

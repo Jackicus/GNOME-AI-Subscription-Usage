@@ -95,6 +95,14 @@ same throwaway shell, **works its controls and photographs it** into
 `docs/screenshots/` — the top bar, a button's pop-up open, and each page of the
 preferences.
 
+`shots --light` is the same run with the throwaway shell set to the light
+preference, which is one line in that keyfile because nothing else reads it. It
+photographs the top bar and the pop-up only — the preferences are a GTK window
+and follow their own colour setting rather than the shell's — and names those
+two `*-light.png`, so the pair in `docs/screenshots/` is the proof that not
+hardcoding a foreground colour actually pays off rather than the claim that it
+does.
+
 The whole thing turns on one refusal and how to get round it. The shell will not
 screenshot for just anyone: `org.gnome.Shell.Screenshot` answers "Screenshot is
 not allowed" unless the caller is one of a few known services, and there is no
@@ -232,6 +240,19 @@ Each button's icon is `provider.icon` resolved to `icons/<name>.svg`, falling
 back to `icons/ai-usage-symbolic.svg` when the property is absent or the file is
 not there — so a provider with no icon of its own still gets a button.
 
+What a button is made of is three more global keys: `show-icon`, `show-percent`
+and `icon-size` (12–24, default 16, which is what the shell's own panel icons
+are). **The two switches cannot both be off.** A button with neither is a
+zero-width actor — still there, still clickable in principle, and completely
+invisible, which is exactly what the Antigravity button looked like before the
+icons were fixed (#23) and reads as the extension being broken. So
+`buttonOptions()` in `settings.js` brings the icon back when the figure has gone
+as well, `indicator.js` applies the same rule at the point of drawing (where
+"there is no figure" is also true of a button that has not been answered yet, or
+whose provider could not be read), and the preferences turn the *other* switch
+back on in front of the user — so the switch they just touched stays where they
+put it and nothing quietly disagrees with it.
+
 ### The pop-up
 
 It is laid out the way Claude Code's own `/usage` panel is, because these are
@@ -246,6 +267,19 @@ sits in a cell with a `min-width` of its own with the figure aligned to the end
 of it. That fixes the right edge of the figures and, because the cell is a fixed
 size, the reset column's right edge as well. The width is in `em`, so it still
 holds `100%` on a desktop with the text scaled up.
+
+The two actions at the foot of it — refresh and the preferences — are drawn the
+way Quick Settings draws its own: a right-aligned row of circular icon buttons,
+not two more full-width rows, which under a list of limits read as more limits.
+They take the shell's **own** `icon-button` class, so the colours, the hover, the
+focus ring, `:insensitive` and `:checked` all come from the theme and go on
+coming from it when the theme changes; each carries an `accessible_name`, since
+an icon alone says nothing to a screen reader. The one thing the stylesheet
+repeats is what that class gets from its surroundings rather than from itself:
+inside `.quick-settings` the shell gives it `padding: 10.5px`, and this pop-up is
+not inside one. Whether an action closes the pop-up is the action's own and
+stays in `app.js` — a refresh leaves it open, because the point is watching the
+figures change; the preferences close it, because a window is about to cover it.
 
 `reset-format` decides the wording, in the pop-ups and the notifications alike —
 they are the same sentence, from the same `formatReset()`. `auto` is the default
