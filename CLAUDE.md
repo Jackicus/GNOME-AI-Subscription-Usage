@@ -96,6 +96,7 @@ src/lib/providers/registry.js  which providers exist, and how to add one
 src/lib/providers/claude.js    Claude, via Claude Code's stored login
 src/lib/providers/codex.js     Codex, via the Codex CLI's stored login --
                                written from openai/codex's source, NEVER RUN
+src/lib/providers/antigravity.js  Antigravity, via agy's keyring login
 src/icons/                a gauge, shipped because Adwaita has no reliable one
 src/prefs.js              preferences; every row binds straight to a key
 ```
@@ -104,6 +105,31 @@ src/prefs.js              preferences; every row binds straight to a key
 `scripts/dev-extension.js` replaces `src/extension.js` in a `make link` install
 so edits reload without restarting the shell; its staging walk is **recursive**,
 unlike the Media Controls one, because `lib/providers/` exists.
+
+## The other two providers
+
+**Antigravity** (`agy`) keeps its login in the **secret service**, not a file.
+The file beside it, `~/.gemini/antigravity-cli/antigravity-oauth-token`, is only
+written when there is no D-Bus session, and on an ordinary desktop it is stale —
+on the machine this was written on it was 17 days old while the keyring entry was
+minutes old. Reading the file first would serve a dead token on a healthy
+machine, so the keyring is tried first and the file only after.
+
+Its figures take two POSTs to `cloudcode-pa.googleapis.com`: `loadCodeAssist`
+names the project the quota hangs off, then `retrieveUserQuotaSummary` returns
+the buckets. The project id is kept for the life of the extension, so later
+polls make one request. Two traps:
+
+* the service answers **403** to a User-Agent that does not begin with
+  `antigravity`. That is why `Http` sets no session-wide agent and each provider
+  passes its own.
+* **the response says what is LEFT.** Everything else here shows what is USED,
+  and each bucket's own `displayName` is "Weekly Limit Remaining" — so reusing
+  that label over an inverted figure would be a plain lie. The label is built
+  from the window and the model family instead, and there is a parser check
+  pinning all three of 0, 1 and 0.35.
+
+**Codex** has never run; see the header of its own file.
 
 ## Settings
 

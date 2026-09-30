@@ -23,10 +23,13 @@ export class HttpError extends Error {
 
 export class Http {
     constructor(userAgent) {
+        this._userAgent = userAgent;
+        // The session carries no user agent of its own: at least one provider
+        // is refused (403) unless the request looks like the tool whose login
+        // it is, so the header is per-request and a provider can set its own.
         this._session = new Soup.Session({
             timeout: TIMEOUT_SECONDS,
             idle_timeout: TIMEOUT_SECONDS,
-            user_agent: userAgent,
         });
     }
 
@@ -34,13 +37,30 @@ export class Http {
     // so a caller can tell "your login is stale" (401) from "the service is
     // having a bad day" (5xx) -- they read very differently to a user.
     getJson(url, headers = {}, cancellable = null) {
-        const message = Soup.Message.new('GET', url);
+        return this._send('GET', url, headers, null, cancellable);
+    }
+
+    // Some providers answer usage questions over POST with a JSON body. It is
+    // still a read: nothing here ever sends a request that changes anything.
+    postJson(url, headers = {}, body = {}, cancellable = null) {
+        return this._send('POST', url, headers, JSON.stringify(body), cancellable);
+    }
+
+    _send(method, url, headers, body, cancellable) {
+        const message = Soup.Message.new(method, url);
         if (!message)
             return Promise.reject(new HttpError(0, `Not a usable URL: ${url}`));
 
         const requestHeaders = message.get_request_headers();
         for (const [name, value] of Object.entries(headers))
             requestHeaders.append(name, value);
+        if (!headers['User-Agent'] && this._userAgent)
+            requestHeaders.append('User-Agent', this._userAgent);
+
+        if (body !== null) {
+            message.set_request_body_from_bytes(
+                'application/json', new GLib.Bytes(new TextEncoder().encode(body)));
+        }
 
         return new Promise((resolve, reject) => {
             this._session.send_and_read_async(

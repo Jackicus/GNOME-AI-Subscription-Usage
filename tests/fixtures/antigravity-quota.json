@@ -1,0 +1,39 @@
+{
+  "groups": [
+    {
+      "buckets": [
+        {
+          "bucketId": "gemini-5h",
+          "displayName": "5 Hour Limit Remaining",
+          "window": "5h",
+          "resetTime": "2026-09-30T21:00:00Z",
+          "remainingFraction": 0.35
+        },
+        {
+          "bucketId": "gemini-weekly",
+          "displayName": "Weekly Limit Remaining",
+          "window": "weekly",
+          "resetTime": "2026-10-05T20:12:05Z",
+          "description": "You have hit your weekly limit, it refreshes in 5 days, 4 hours. If on a supported paid plan, you can use AI credits in the interim or upgrade to a higher tier.",
+          "remainingFraction": 0
+        }
+      ],
+      "displayName": "Gemini Models",
+      "description": "Models within this group: Gemini Flash, Gemini Pro"
+    },
+    {
+      "buckets": [
+        {
+          "bucketId": "3p-weekly",
+          "displayName": "Weekly Limit Remaining",
+          "window": "weekly",
+          "resetTime": "2026-10-07T15:24:44Z",
+          "remainingFraction": 1
+        }
+      ],
+      "displayName": "Claude and GPT models",
+      "description": "Models within this group: Claude Opus, Claude Sonnet, GPT-OSS"
+    }
+  ],
+  "description": "Within each group, models share a weekly limit. Quota is consumed proportionally to the cost of the tokens. Thus, limits will last longer with shorter tasks or using more cost-effective models. Your weekly limit is tied directly to your individual tier."
+}

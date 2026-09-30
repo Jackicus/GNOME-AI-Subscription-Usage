@@ -31,7 +31,11 @@ one place to sign out, and no second copy of your credentials.
 | Provider | Needs | Status |
 | --- | --- | --- |
 | Claude | Claude Code (`claude`), signed in | Working, verified against a live account |
+| Antigravity | the Antigravity CLI (`agy`), signed in | Working, verified against a live account |
 | Codex | the Codex CLI (`codex`), signed in with ChatGPT | Written, **never run against a live account** ([#8](https://github.com/Jackicus/GNOME-AI-Subscription-Usage/issues/8)) |
+
+Where a tool keeps its login in the system keyring rather than a file — as the
+Antigravity CLI does — the extension reads it from there.
 
 Each provider is switched on or off separately in the preferences, along with
 what it shows — whether it may supply the figure on the button, whether its
@@ -70,10 +74,20 @@ Claude (claude)
   cli:      /usr/bin/claude
   plan:     Max 5x
   limits:
-    Current session            [------------------------]   2%  resets in 3h 56m
-    This week                  [#####-------------------]  20%  resets in 6 days
-    This week · Fable          [#######-----------------]  29%  resets in 6 days, in force
+    Current session            [##----------------------]   8%  resets in 2h 40m
+    This week                  [#####-------------------]  22%  resets in 6 days
+    This week · Fable          [#######-----------------]  30%  resets in 6 days, in force
   week went to: Claude Code 100%
+
+Codex (codex)
+  'codex' is not on PATH -- the extension leaves this provider out.
+
+Antigravity (antigravity)
+  cli:      /home/hp/.local/bin/agy
+  plan:     Free tier
+  limits:
+    This week · Gemini Models  [########################] 100%  resets in 5 days, critical
+    This week · Claude and GPT models [------------------------]   0%  resets in 7 days
 ```
 
 ## Development

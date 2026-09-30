@@ -14,6 +14,7 @@ import GLib from 'gi://GLib';
 import Gio from 'gi://Gio';
 
 import {applyOptions} from '../src/lib/settings.js';
+import {AntigravityProvider} from '../src/lib/providers/antigravity.js';
 import {ClaudeProvider} from '../src/lib/providers/claude.js';
 import {CodexProvider} from '../src/lib/providers/codex.js';
 import {Status, formatPercent} from '../src/lib/usage.js';
@@ -92,6 +93,35 @@ print('\n\x1b[1mCodex\x1b[0m — tests/fixtures/codex-usage.json  \x1b[2m(shape 
     check('no breakdown for this provider', reading.breakdown.length, 0);
 }
 
+print('\n\x1b[1mAntigravity\x1b[0m — tests/fixtures/antigravity-quota.json  \x1b[2m(real, plus a synthetic 5h bucket)\x1b[0m');
+{
+    AntigravityProvider._plan = 'Free tier';
+    const reading = AntigravityProvider._parse(fixture('antigravity-quota.json'), THRESHOLDS);
+
+    check('status', reading.status, Status.OK);
+    check('buckets found', reading.limits.length, 3);
+
+    // The response says what is LEFT and the extension shows what is USED.
+    // Getting this backwards would read 100% on an untouched limit.
+    // Sorted: the 5-hour bucket, then the weekly ones in the order the
+    // response listed them (the sort is stable, and both rank the same).
+    check('remainingFraction 0.35 means 65% used', formatPercent(reading.limits[0].percent), '65%');
+    check('remainingFraction 0 means fully used', formatPercent(reading.limits[1].percent), '100%');
+    check('remainingFraction 1 means untouched', formatPercent(reading.limits[2].percent), '0%');
+
+    check('shortest window sorts first', reading.limits[0].id, 'gemini-5h');
+    check('5h window labelled', reading.limits[0].label, 'Current session · Gemini Models');
+    check('weekly window labelled', reading.limits[1].label, 'This week · Gemini Models');
+    check('the other family keeps its own row', reading.limits[2].label, 'This week · Claude and GPT models');
+    // The bucket's own displayName is "Weekly Limit Remaining", which over a
+    // used-figure would be a plain lie. It must not reach the label.
+    check('the response label is NOT reused', reading.limits[1].label.includes('Remaining'), false);
+    check('an exhausted bucket is critical', reading.limits[1].severity, 'critical');
+    check('an untouched bucket is normal', reading.limits[2].severity, 'normal');
+    check('reset time parsed', reading.limits[1].resetsAt?.format_iso8601(), '2026-10-05T20:12:05Z');
+    check('nothing is marked per-model', reading.limits.filter(l => l.scoped).length, 0);
+}
+
 // The display switches must never destroy what they hide: turning one back on
 // has to restore the row at once, without waiting for the next poll.
 print('\n\x1b[1mDisplay switches\x1b[0m — hiding a row must not throw it away');
@@ -120,10 +150,15 @@ print('\n\x1b[1mDisplay switches\x1b[0m — hiding a row must not throw it away'
 // An unreadable response must degrade, never throw: a provider that throws
 // takes the whole pop-up down with it.
 print('\n\x1b[1mBoth\x1b[0m — a response in a shape they do not know');
-for (const provider of [ClaudeProvider, CodexProvider]) {
+for (const provider of [ClaudeProvider, CodexProvider, AntigravityProvider]) {
     let threw = null;
     try {
-        parse(provider, {nonsense: true}, {});
+        // Antigravity's parser takes no credentials; the others ignore the
+        // second argument when the body is unusable.
+        if (provider === AntigravityProvider)
+            provider._parse({nonsense: true}, THRESHOLDS);
+        else
+            parse(provider, {nonsense: true}, {});
     } catch (e) {
         threw = e;
     }

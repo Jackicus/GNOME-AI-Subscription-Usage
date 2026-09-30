@@ -31,12 +31,14 @@
 // module is expected to be defensive and to go quiet -- Status.UNAVAILABLE --
 // rather than throw when what it finds is not the shape it knew.
 
+import {AntigravityProvider} from './antigravity.js';
 import {ClaudeProvider} from './claude.js';
 import {CodexProvider} from './codex.js';
 
 const PROVIDERS = new Map([
     [ClaudeProvider.id, ClaudeProvider],
     [CodexProvider.id, CodexProvider],
+    [AntigravityProvider.id, AntigravityProvider],
 ]);
 
 export function allProviders() {
