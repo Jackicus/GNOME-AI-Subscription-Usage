@@ -15,7 +15,7 @@ import Gio from 'gi://Gio';
 
 import {applyOptions} from '../src/lib/settings.js';
 import {AntigravityProvider} from '../src/lib/providers/antigravity.js';
-import {ClaudeProvider} from '../src/lib/providers/claude.js';
+import {ClaudeProvider, planLabel, readAccountTier} from '../src/lib/providers/claude.js';
 import {CodexProvider} from '../src/lib/providers/codex.js';
 import {Status, formatPercent} from '../src/lib/usage.js';
 
@@ -71,6 +71,82 @@ print('\x1b[1mClaude\x1b[0m — tests/fixtures/claude-usage.json');
     check('breakdown label', reading.breakdown[0].label, 'Claude Code');
     check('credits absent when not enabled', reading.credits, null);
     check('worst limit is the highest', formatPercent(reading.worst.percent), '97%');
+}
+
+// Where the plan name comes from, and in what order. The tier in the
+// credentials file is stamped there at sign-in and never rewritten, so on an
+// account that has since changed plan it is simply wrong -- a Max 20x account
+// read from it says "Max 5x" (issue #12). ~/.claude.json is the copy Claude
+// Code refreshes when it starts, so it is asked first; every way that file can
+// fail has to fall through to the old source rather than take the pop-up down.
+print('\n\x1b[1mClaude\x1b[0m — the plan name, and which file it comes from');
+{
+    const dir = GLib.dir_make_tmp('ai-usage-plan-XXXXXX');
+    const written = [];
+    // The account file as it would be on disk, read the way the extension
+    // reads the real one -- so what is pinned here is the actual file handling
+    // rather than a re-statement of it. A null text means no file at all.
+    const accountTier = text => {
+        const file = Gio.File.new_for_path(
+            GLib.build_filenamev([dir, `claude-${written.length}.json`]));
+        if (text !== null) {
+            file.replace_contents(new TextEncoder().encode(text), null, false,
+                Gio.FileCreateFlags.NONE, null);
+            written.push(file);
+        }
+        return readAccountTier(file);
+    };
+
+    // The real shape: the organisation's tier, the admin's own one null.
+    const live = accountTier(JSON.stringify({
+        numStartups: 42,
+        oauthAccount: {
+            emailAddress: 'someone@example.com',
+            organizationRateLimitTier: 'default_claude_max_20x',
+            userRateLimitTier: null,
+            organizationRole: 'admin',
+        },
+    }));
+    const stale = {rateLimitTier: 'default_claude_max_5x', subscriptionType: 'max'};
+
+    check('the account file is read', live, 'default_claude_max_20x');
+    check('max_20x humanises', planLabel({accountTier: live}), 'Max 20x');
+    check('it beats the stale credentials tier', planLabel({...stale, accountTier: live}), 'Max 20x');
+    check('which on its own would have said', planLabel(stale), 'Max 5x');
+
+    // A personal account carries no organisation tier, so its own is taken.
+    check('userRateLimitTier when there is no org tier',
+        accountTier(JSON.stringify({oauthAccount: {
+            organizationRateLimitTier: null, userRateLimitTier: 'default_claude_pro',
+        }})), 'default_claude_pro');
+
+    // Each of these is an ordinary state and not a fault: no file until Claude
+    // Code has run, a half-written one while it rewrites, and no oauthAccount
+    // at all until it has been signed into once.
+    check('an absent file yields no tier', accountTier(null), null);
+    check('an unparseable file yields no tier', accountTier('{"oauthAccount": {"organi'), null);
+    check('a file with no oauthAccount yields none', accountTier('{"numStartups": 42}'), null);
+    check('an empty tier is not a tier', accountTier('{"oauthAccount": {"organizationRateLimitTier": ""}}'), null);
+    check('a non-string tier is not a tier', accountTier('{"oauthAccount": {"userRateLimitTier": 7}}'), null);
+
+    // ...and every one of them falls through to what there was before.
+    for (const [what, text] of [['absent', null], ['unparseable', '{"oauthAcc'],
+        ['without oauthAccount', '{}']]) {
+        check(`${what} falls back to the credentials`,
+            planLabel({...stale, accountTier: accountTier(text)}), 'Max 5x');
+    }
+    check('with no tier anywhere, the subscription name',
+        planLabel({subscriptionType: 'max', accountTier: accountTier(null)}), 'Max');
+    check('nothing known at all means no plan shown', planLabel({}), null);
+
+    // And the whole way through, on a real response.
+    const reading = parse(ClaudeProvider, fixture('claude-usage.json'),
+        {...stale, accountTier: live});
+    check('the reading carries the live plan', reading.plan, 'Max 20x');
+
+    for (const file of written)
+        file.delete(null);
+    Gio.File.new_for_path(dir).delete(null);
 }
 
 print('\n\x1b[1mCodex\x1b[0m — tests/fixtures/codex-usage.json  \x1b[2m(shape only; never seen live)\x1b[0m');

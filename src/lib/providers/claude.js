@@ -16,6 +16,12 @@
 //     spent, which signs the user out of their terminal. So it never refreshes:
 //     when the token is rejected it reports EXPIRED and asks the user to run
 //     Claude Code, which refreshes it as a side effect of starting.
+//
+// The plan name comes from a second file, ~/.claude.json, for the reason given
+// over readAccountTier(): the tier in the credentials is stamped there at
+// sign-in and never rewritten, so on an upgraded account it is simply wrong.
+// A file read rather than a second request -- the poll stays one HTTP call, and
+// this still only ever reads what the tool already stored.
 
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
@@ -69,6 +75,13 @@ export const ClaudeProvider = {
     credentialsFile() {
         return Gio.File.new_for_path(
             GLib.build_filenamev([GLib.get_home_dir(), '.claude', '.credentials.json']));
+    },
+
+    // Claude Code's own account state, which is where the current plan is. Not
+    // watched: it is read alongside the credentials on every poll.
+    accountFile() {
+        return Gio.File.new_for_path(
+            GLib.build_filenamev([GLib.get_home_dir(), '.claude.json']));
     },
 
     async read(http, cancellable = null, thresholds = {warn: 80, critical: 95}) {
@@ -300,6 +313,7 @@ function readCredentials() {
             accessToken: oauth.accessToken,
             subscriptionType: oauth.subscriptionType ?? null,
             rateLimitTier: oauth.rateLimitTier ?? null,
+            accountTier: readAccountTier(ClaudeProvider.accountFile()),
         };
     } catch {
         // A half-written file -- Claude Code refreshing the token as we read.
@@ -308,11 +322,56 @@ function readCredentials() {
     }
 }
 
-// "default_claude_max_5x" -> "Max 5x". Cosmetic, and dropped entirely if the
-// tier is not a shape we recognise, since a wrong plan name is worse than none.
-function planLabel(auth) {
-    const tier = auth?.rateLimitTier;
-    if (typeof tier === 'string' && tier) {
+// The plan, from the account state Claude Code keeps in ~/.claude.json.
+//
+// The tier in the credentials file is written when the login is created and is
+// never rewritten, so an account that has since changed plan reports the plan
+// it signed up on -- a Max 20x account reading as "Max 5x". This file carries
+// its own `profileFetchedAt` and Claude Code refreshes it when it starts, so it
+// is the current one. The usage response itself has no plan field at all, and a
+// second request for one would cost a round trip on every poll.
+//
+// It is a largish file of things this extension has no business with, so only
+// the tier is taken from it, nothing is kept, and nothing is ever written back.
+// Absent, half-written, or simply without an `oauthAccount` -- Claude Code has
+// been installed but never signed in -- are all ordinary, and each falls
+// through to the credentials rather than throwing: a missing plan name is fine,
+// a wrong one is not.
+export function readAccountTier(file) {
+    let contents;
+    try {
+        const [ok, bytes] = file.load_contents(null);
+        if (!ok)
+            return null;
+        contents = new TextDecoder().decode(bytes);
+    } catch (e) {
+        Log.debug(`No Claude account file to read: ${e.message}`);
+        return null;
+    }
+
+    try {
+        const account = JSON.parse(contents)?.oauthAccount;
+        // The limits are metered against the organisation, so its tier is the
+        // one that governs; userRateLimitTier is what a personal account has.
+        return tierString(account?.organizationRateLimitTier) ??
+            tierString(account?.userRateLimitTier);
+    } catch {
+        // Half-written, or not the shape this version knows.
+        return null;
+    }
+}
+
+function tierString(value) {
+    return typeof value === 'string' && value ? value : null;
+}
+
+// "default_claude_max_5x" -> "Max 5x". Cosmetic, and dropped entirely if no
+// source yields a shape we recognise, since a wrong plan name is worse than
+// none. The live tier first, then the one frozen into the credentials at
+// sign-in, then the bare subscription name.
+export function planLabel(auth) {
+    const tier = tierString(auth?.accountTier) ?? tierString(auth?.rateLimitTier);
+    if (tier) {
         const cleaned = tier.replace(/^default_claude_/, '').replace(/_/g, ' ').trim();
         if (cleaned)
             return cleaned.replace(/^\w/, c => c.toUpperCase());
