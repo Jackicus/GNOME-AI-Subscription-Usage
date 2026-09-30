@@ -14,6 +14,7 @@ export const Status = {
     SIGNED_OUT: 'signed-out',  // installed, but no stored login was found
     EXPIRED: 'expired',        // a login was found, but the service rejected it
     UNAVAILABLE: 'unavailable', // the request failed, or came back unreadable
+    UNSUPPORTED: 'unsupported', // signed in, but this login has no limits to show
 };
 
 export const Severity = {

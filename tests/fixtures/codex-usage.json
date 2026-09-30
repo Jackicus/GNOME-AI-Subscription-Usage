@@ -1,0 +1,43 @@
+{
+  "plan_type": "plus",
+  "rate_limit": {
+    "allowed": true,
+    "limit_reached": false,
+    "primary_window": {
+      "used_percent": 50,
+      "limit_window_seconds": 18000,
+      "reset_after_seconds": 6000,
+      "reset_at": 2000000000
+    },
+    "secondary_window": {
+      "used_percent": 82,
+      "limit_window_seconds": 604800,
+      "reset_after_seconds": 300000,
+      "reset_at": 2000600000
+    }
+  },
+  "credits": {
+    "has_credits": true,
+    "unlimited": false,
+    "balance": 12
+  },
+  "additional_rate_limits": [
+    {
+      "limit_name": "gpt-5-codex-limit",
+      "metered_feature": "codex",
+      "normal_model_slug": "gpt-5-codex",
+      "rate_limit": {
+        "allowed": true,
+        "limit_reached": false,
+        "primary_window": {
+          "used_percent": 97,
+          "limit_window_seconds": 18000,
+          "reset_after_seconds": 900,
+          "reset_at": 2000000900
+        },
+        "secondary_window": null
+      }
+    }
+  ],
+  "rate_limit_reached_type": {"type": "rate_limit_reached"}
+}

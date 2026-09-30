@@ -20,6 +20,7 @@ const OFF = '\x1b[0m';
 const EXPLANATION = {
     [Status.SIGNED_OUT]: 'no stored login found -- sign in with its command-line tool',
     [Status.EXPIRED]: 'the stored login was rejected -- run its command-line tool once to refresh it',
+    [Status.UNSUPPORTED]: 'signed in, but this login has no subscription limits',
     [Status.UNAVAILABLE]: 'the figures could not be read',
 };
 

@@ -33,6 +33,8 @@ function explain(reading) {
         return `Not signed in. Run ${reading.cli ?? 'its command-line tool'} and sign in there.`;
     case Status.EXPIRED:
         return `The stored login has expired. Run ${reading.cli ?? 'its command-line tool'} once and it will refresh itself.`;
+    case Status.UNSUPPORTED:
+        return reading.message ?? 'This login has no subscription limits to show.';
     case Status.UNAVAILABLE:
         return reading.message
             ? `Usage could not be read: ${reading.message}`

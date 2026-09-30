@@ -1,12 +1,15 @@
 # Thin front door; all logic lives in scripts/dev.sh.
 DEV := ./scripts/dev.sh
 
-.PHONY: all link install reload logs pack providers uninstall status clean help lint
+.PHONY: all link install reload logs pack providers parsers uninstall status clean help lint check
 
 all: install
 
-link install reload logs pack providers uninstall status clean:
+link install reload logs pack providers parsers uninstall status clean:
 	@$(DEV) $@
+
+# Everything that can be checked without a GNOME Shell.
+check: lint parsers
 
 # gjs.guide's ESLint rules over the GJS code (eslint.config.mjs).
 lint: node_modules

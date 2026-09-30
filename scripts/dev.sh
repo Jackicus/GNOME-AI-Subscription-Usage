@@ -11,6 +11,10 @@
 #                               provider, whether its command-line tool is
 #                               installed, whether a login is stored, and the
 #                               figures that come back
+#   ./scripts/dev.sh parsers    run each provider's parser over a saved response
+#                               and check what comes out -- the only test that
+#                               needs no GNOME Shell, and the only check at all
+#                               for a provider whose tool is not installed here
 #   ./scripts/dev.sh uninstall  remove the extension
 #   ./scripts/dev.sh status     show what is currently installed and enabled
 #   ./scripts/dev.sh clean      remove the compiled schema and what the scripts
@@ -198,6 +202,12 @@ cmd_providers() {
     gjs -m "$REPO_DIR/scripts/providers.js"
 }
 
+# The parser checks. Fixtures live in tests/fixtures/.
+cmd_parsers() {
+    require gjs
+    gjs -m "$REPO_DIR/scripts/parsers.js"
+}
+
 cmd_uninstall() {
     remove_installed
     ok "Removed $EXT_DIR"
@@ -246,6 +256,7 @@ case "${1:-}" in
     logs)       cmd_logs "${2:-}" ;;
     pack)       cmd_pack ;;
     providers)  cmd_providers ;;
+    parsers)    cmd_parsers ;;
     uninstall)  cmd_uninstall ;;
     status)     cmd_status ;;
     clean)      cmd_clean ;;
