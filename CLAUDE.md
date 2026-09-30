@@ -46,6 +46,17 @@ on the per-model rows. `seven_day_breakdown` says where the week went, and
 and `seven_day` objects carry the same figures with less metadata and are kept
 as a fallback.
 
+The plan name is not in that response, and it is **not** the `rateLimitTier` in
+the credentials either: that one is stamped in at sign-in and never rewritten,
+so an upgraded account keeps reporting the plan it signed up on. It comes from
+`~/.claude.json` → `oauthAccount.organizationRateLimitTier` (then
+`userRateLimitTier`), which Claude Code refreshes when it starts — a second
+file read, deliberately not a second request, so the poll stays one HTTP call.
+That file is large and full of things this extension has no business with, so
+only the tier is taken from it and nothing is kept; absent, half-written or
+without an `oauthAccount` all fall back to the credentials tier and then to
+`subscriptionType`, because a missing plan name is fine and a wrong one is not.
+
 **This endpoint is undocumented and its shape moves.** The response has fields
 named `iguana_necktie`, `nimbus_quill`, `brass_thimble` — unreleased things
 behind codenames. So `claude.js` reads defensively and reports
