@@ -255,6 +255,7 @@ class UsageIndicator extends PanelMenu.Button {
         if (!this._readings.length) {
             this._section.addMenuItem(headerItem(this._name, null, this._actions));
             this._section.addMenuItem(captionItem('Reading usage…'));
+            this._padLastRow();
             return;
         }
 
@@ -265,6 +266,18 @@ class UsageIndicator extends PanelMenu.Button {
             this._addReading(reading, first);
             first = false;
         }
+        this._padLastRow();
+    }
+
+    // The bottom of the pop-up is the bottom of whatever row happened to come
+    // last, and those rows do not carry the same padding -- a limit's is 9px, a
+    // caption's 6px -- so the space under the last one drifted away from the
+    // space over the first. St has no `:last-child`, so the last row is marked
+    // here instead and the stylesheet gives that one row the padding that
+    // squares the margin off.
+    _padLastRow() {
+        const rows = this._section.box.get_children();
+        rows[rows.length - 1]?.add_style_class_name('ai-usage-last');
     }
 
     // `withActions` is true for the first reading in the pop-up and no other.
@@ -327,14 +340,34 @@ class UsageIndicator extends PanelMenu.Button {
 // with the caller: a refresh leaves it open, because its whole point is the
 // figures you are looking at changing in front of you, and the preferences
 // close it, because a window is about to open over it.
+//
+// Drawn at full strength these two were the brightest thing in the pop-up --
+// brighter than the figures, which are what it is for. So they are dimmed the
+// way every other piece of secondary furniture here is: actor opacity, since
+// St has no CSS opacity.
+//
+// The opacity goes on the icon and not on the button, and the difference
+// matters: opacity multiplies down the tree, so dimming the button would take
+// the theme's own hover background down with the glyph. And the theme does not
+// bring the glyph back by itself -- `.icon-button.flat:hover` sets only
+// `background-color`, the colour stays `#ffffff` either way, and a CSS colour
+// cannot undo an actor's opacity in any case. So the hover is wired here.
 function actionButton(label, iconName, action) {
+    const icon = new St.Icon({icon_name: iconName, opacity: DIM_OPACITY});
     const button = new St.Button({
         style_class: 'icon-button flat',
         can_focus: true,
         accessible_name: label,
         y_align: Clutter.ActorAlign.CENTER,
-        child: new St.Icon({icon_name: iconName}),
+        child: icon,
     });
+    // Pointed at or tabbed to, it is the thing being used: full strength.
+    const light = () => {
+        icon.opacity = button.hover || button.has_key_focus() ? 255 : DIM_OPACITY;
+    };
+    button.connect('notify::hover', light);
+    button.connect('key-focus-in', light);
+    button.connect('key-focus-out', light);
     button.connect('clicked', () => action());
     return button;
 }
@@ -425,9 +458,13 @@ function limitItem(limit, resetFormat) {
     });
 
     const top = new St.BoxLayout({style_class: 'ai-usage-limit-row', x_expand: true});
+    // Every limit's name is drawn the same way. Weight used to mean "the one
+    // in force", which Claude Code's own panel does not distinguish either --
+    // `limit.active` is still in the model and app.js still reads it, it just
+    // no longer changes how a row looks.
     const name = new St.Label({
         text: limit.label,
-        style_class: limit.active ? 'ai-usage-limit-label ai-usage-active' : 'ai-usage-limit-label',
+        style_class: 'ai-usage-limit-label',
         x_expand: true,
         y_align: Clutter.ActorAlign.CENTER,
     });
@@ -451,13 +488,23 @@ function limitItem(limit, resetFormat) {
 
     // The cell takes the width; the label inside it takes the colour, so the
     // severity paints the figure and not an empty box around it.
+    //
+    // A box and not an St.Bin, for the reason UsageBar is a box: a bin centres
+    // its single child and ignores the child's x_align, so the figure sat in
+    // the middle of this 3.5em cell -- 12px short of where the bar below it
+    // ends -- however firmly it was told to align to the end. In a box the
+    // expanding child is handed the slack and then aligned inside it, so END
+    // means the end.
     const figure = new St.Label({
         text: formatPercent(limit.percent),
         style_class: `ai-usage-limit-figure ${SEVERITY_CLASS[limit.severity] ?? SEVERITY_CLASS[Severity.NORMAL]}`,
+        x_expand: true,
         x_align: Clutter.ActorAlign.END,
         y_align: Clutter.ActorAlign.CENTER,
     });
-    top.add_child(new St.Bin({style_class: 'ai-usage-limit-percent', child: figure}));
+    const percent = new St.BoxLayout({style_class: 'ai-usage-limit-percent'});
+    percent.add_child(figure);
+    top.add_child(percent);
 
     column.add_child(top);
     column.add_child(new UsageBar(limit.percent / 100, limit.severity));

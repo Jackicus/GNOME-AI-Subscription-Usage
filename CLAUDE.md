@@ -271,9 +271,18 @@ tiles, 12px between, 18px either side, so a little over 27em, set on
 "a pill" everywhere. Round ends put a floor under `UsageBar._resize()`'s
 minimum sliver: a fill narrower than the bar is tall is a circle with its sides
 cut off, so the floor is the height, at which 1% is a dot and 0% is nothing.
-And the margin is even all four ways round — `.popup-menu-content`'s 6px plus
-12px of row padding is 18px, which is exactly what `.quick-settings` puts round
-itself — so the last row needs `padding-bottom: 12px` to match the sides.
+The margin is even all four ways round, and that one is settled off the picture
+rather than by adding the numbers up. The sides are `.popup-menu-content`'s 6px
+plus 12px of row padding — 18px, exactly what `.quick-settings` puts round
+itself — which measures as 19px of white to the first ink. The bottom matches
+it: the last row takes `padding-bottom: 12px`, and since **St has no
+`:last-child`** the last row is whichever one `_padLastRow()` marked with
+`ai-usage-last`, because it is not always a limit row and a caption's padding is
+not a limit's. The top is 9px and not 12px, which looks wrong written down and
+is right on screen: the header's first line carries 3px of leading above its cap
+height, while a bar is solid to its own edge, so 9px of padding and 12px of
+padding measure the same 19px. (Before this, the top measured 22px against the
+bottom's 16px — #36.)
 
 The button's own padding is from the same place: the shell's
 `-natural-hpadding` is 12px, which around an icon and two digits leaves the
@@ -290,6 +299,21 @@ of it. That fixes the right edge of the figures and, because the cell is a fixed
 size, the reset column's right edge as well. The width is in `em`, so it still
 holds `100%` on a desktop with the text scaled up.
 
+That cell is an `St.BoxLayout`, for the same reason `UsageBar` is: **an
+`St.Bin` centres its single child and ignores the child's `x_align`**. As a bin
+it drew every figure in the middle of its 3.5em cell — 12px short of where the
+bar under it ended, which looked plausible and was wrong, and is the same bug
+that once made the bar fills float in the middle of their tracks (df9ae2d). In
+a box the expanding child is handed the slack and *then* aligned inside it, so
+`END` means the end, and the figures' right edge now measures the same 19px
+inset as the bars' (#36).
+
+Every limit's name is bold. Weight used to mean "the limit in force", which
+Claude Code's own panel does not distinguish either, and which made two of the
+three names read as less important rather than one as current. `Limit.active`
+stays in the model — `app.js` reads it, and `make providers` still prints "in
+force" — it simply no longer changes how a row is drawn.
+
 The two actions — refresh, and an arrow to the preferences — sit at the
 **right-hand end of the header row**, level with the provider's name and the
 plan. That is where Claude Code's own usage panel puts its `→` and where Quick
@@ -305,7 +329,21 @@ a screen reader, and there is no longer even a filled shape to aim at. The one
 thing the stylesheet repeats is the padding, which that class gets from its
 surroundings rather than from itself — 6px across, from `.quick-slider`, and 2px
 down, so the button is exactly as tall as the header's own text and the row does
-not grow to hold it.
+not grow to hold it. The glyphs are `icon-size: 0.955em` — 14px where
+`.icon-button StIcon` is 1.091em, so 16px — because they are furniture and not
+the subject; `.icon-button`'s `min-height` is unchanged, so the row is the same
+height it was.
+
+Drawn at full strength they were the brightest thing in the pop-up, brighter
+than the figures it is for, so they are dimmed to `DIM_OPACITY` like every other
+piece of secondary furniture here. **The opacity goes on the icon, not on the
+button**: opacity multiplies down the tree, so dimming the button would take the
+theme's hover background down with the glyph. And the theme will not bring the
+glyph back on its own — `.icon-button.flat:hover` sets only `background-color`,
+the colour is `#ffffff` either way, and no CSS colour can undo an actor's
+opacity — so `actionButton()` wires the hover and the key focus itself. Measured
+off the pictures: 255 before, 182 at rest, 255 again under the pointer while its
+neighbour stays at 181.
 
 **They belong to the pop-up, not to a provider**: refresh reads every live
 provider and there is one preferences window. In `per-provider` mode each pop-up
@@ -385,6 +423,15 @@ not exist, and fails for any input at all.)
   with actor opacity from `indicator.js`; the bar fill is sized against the
   track's allocation on `notify::width`. It does have `min-width`, which is what
   holds the pop-up's percentage column still.
+* **`St.Bin` centres its single child and ignores the child's `x_align`.** Both
+  the bar fills and the percentage figures were drawn floating in the middle of
+  their cells by it, and both look plausible enough to survive a glance — the
+  figures were 12px short of the bars for a whole release. Use `St.BoxLayout`:
+  a box packs from the start edge, and hands an `x_expand` child the slack and
+  then aligns it inside that.
+* **St has no `:last-child`** (nor `:first-child`). A rule meant for the last
+  row has to be a class the code puts there — `_padLastRow()` in
+  `indicator.js`.
 * **Menus follow the light/dark preference**, so no foreground colour is
   hardcoded. The one flat colour needed — the empty part of a bar — is a mid
   grey that sits correctly on either.

@@ -92,10 +92,13 @@
 /* `.popup-menu-content` pads the menu by 6px and `.popup-menu-item` pads each
    row by 12px, so the space from the edge of the pop-up to the start of a row
    is already the 18px `.quick-settings` puts round itself. The top and bottom
-   are this file's to match: 12px of row padding on the first and last rows
-   makes the margin the same 18px all four ways round. */
+   are this file's to match, and they are measured off the picture rather than
+   added up here, because what the eye sees at the top is not the box: the
+   header's first line has 3px of leading over its cap height, while the last
+   row ends in a bar, which is solid to its own edge. So the top takes 9px and
+   the bottom 12px, and the white space comes out at 19px on all four sides. */
 .ai-usage-header {
-    padding-top: 12px;
+    padding-top: 9px;
     padding-bottom: 6px;
 }
 
@@ -128,12 +131,12 @@
     spacing: 12px;
 }
 
+/* Every limit's name, in bold. Weight used to say which limit was in force,
+   and it no longer does: Claude Code's own panel does not distinguish them
+   that way either, and a pop-up in which two of three names are lighter reads
+   as two of them being less important rather than as one being current. */
 .ai-usage-limit-label {
     font-size: 0.95em;
-}
-
-/* The limit the provider says is currently in force. */
-.ai-usage-active {
     font-weight: bold;
 }
 
@@ -188,6 +191,17 @@
     padding: 2px 6px;
 }
 
+/* Header furniture, not the subject, so a little under the shell's own glyph:
+   `.icon-button StIcon` is `icon-size: 1.091em`, which is 16px, and this is
+   14px at the same base. In em for the same reason the shell writes it that
+   way. The button does not shrink with it -- `.icon-button`'s `min-height` is
+   still 1.091em -- so the header row is exactly as tall as it was. The dimming
+   that goes with this is actor opacity from indicator.js, St having no CSS
+   opacity. */
+.ai-usage-action-row .icon-button StIcon {
+    icon-size: 0.955em;
+}
+
 /* The shell's own slider, which is the nearest thing it draws to this:
    `.slider { -barlevel-height: 4px; }`, and pills everywhere else -- so 4px
    tall with `border-radius: 999px` on the track and on the fill both. The
@@ -232,4 +246,13 @@
 .ai-usage-caption-row {
     padding-top: 2px;
     padding-bottom: 6px;
+}
+
+/* The last row in the pop-up, whichever kind of row that turns out to be --
+   indicator.js marks it, because St has no `:last-child`. This is what closes
+   the pop-up off: 12px here and 6px from `.popup-menu-content` is the same 18px
+   the sides already have, and it has to outweigh the padding the row's own
+   class gives it, so it is last in this file. */
+.ai-usage-last {
+    padding-bottom: 12px;
 }
