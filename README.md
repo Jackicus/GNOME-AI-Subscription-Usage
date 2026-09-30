@@ -3,10 +3,10 @@
 A GNOME Shell extension that shows how much of your AI subscription you have
 used, as a button in the top bar.
 
-![The pop-up for Claude on a Max (20x) plan: the 5-hour limit at 0%, the week
-across all models at 24%, and the week for the model in force at 30%, each with
-the time it resets, above "Refresh now" and
-"Preferences".](docs/screenshots/pop-up.png)
+![The pop-up for Claude on a Max (20x) plan: the 5-hour limit at 2%, the week
+across all models at 25%, and the week for the model in force at 30%, each with
+a bar and the time it resets, above a refresh button and a preferences button
+drawn as circles.](docs/screenshots/pop-up.png)
 
 It lists the limits your provider actually enforces — the current session, the
 week, and the week for each model — with the percentage used, a bar, and the

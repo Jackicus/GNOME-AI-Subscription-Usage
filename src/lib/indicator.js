@@ -60,10 +60,17 @@ function explain(reading) {
 // against the track's allocation each time that changes, which also covers the
 // pop-up being opened at a different width.
 const UsageBar = GObject.registerClass(
-class UsageBar extends St.Bin {
-    // St.Bin adds no _init of its own, so this takes the modern constructor
-    // form. UsageIndicator below cannot: PanelMenu.Button defines _init, and
-    // going through a constructor would skip it.
+class UsageBar extends St.BoxLayout {
+    // A box rather than an St.Bin, and that is the whole point of it: a bin
+    // centres its single child, and setting `x_align: START` on the child does
+    // not change that -- which is why every bar in this pop-up drew its fill
+    // as a segment floating in the middle of the track. A horizontal box packs
+    // from the start edge, so the fill begins at the left because that is
+    // where a box puts the first child, not because it was asked to.
+    //
+    // St.BoxLayout adds no _init of its own, so this takes the modern
+    // constructor form. UsageIndicator below cannot: PanelMenu.Button defines
+    // _init, and going through a constructor would skip it.
     constructor(fraction, severity) {
         super({
             style_class: 'ai-usage-bar',
@@ -74,9 +81,12 @@ class UsageBar extends St.Bin {
         this._fraction = Math.max(0, Math.min(1, fraction));
         this._fill = new St.Widget({
             style_class: `ai-usage-bar-fill ${SEVERITY_CLASS[severity] ?? SEVERITY_CLASS[Severity.NORMAL]}`,
-            x_align: Clutter.ActorAlign.START,
+            // Never expanded: the width is set outright in _resize(), and an
+            // expanding child would be stretched to the whole track.
+            x_expand: false,
+            y_expand: true,
         });
-        this.set_child(this._fill);
+        this.add_child(this._fill);
 
         this.connect('notify::width', () => this._resize());
     }
