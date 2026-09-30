@@ -16,13 +16,16 @@
    16px icon with a two- or three-character figure beside it that is more room
    than either needs, and the effect is a button whose edge sits a long way
    from its own number. 6px is the shell's own `-minimum-hpadding` -- what it
-   falls back to when the top bar runs out of room -- so the button is still
-   padded with a figure GNOME uses, just the tighter of the two.
+   falls back to when the top bar runs out of room. 8px, because zeroing the
+   icon's margin below takes 4px off the left of every button and two buttons
+   side by side then sit closer to each other than the shell's own do: 8px
+   either side keeps them apart while still being well under the 12px that made
+   the button look detached from its own number.
 
    Two classes and the id, so this outweighs `#panel .panel-button` whatever
    order the two stylesheets happen to load in. */
 #panel .panel-button.ai-usage-panel-button {
-    -natural-hpadding: 6px;
+    -natural-hpadding: 8px;
 }
 
 /* `.system-status-icon` carries 6px of padding either side, which is the shell
@@ -30,16 +33,23 @@
    beside it, and that padding is what was holding the two apart: the icon read
    as one thing and its own percentage as another. The shell has the same
    problem wherever it puts several icons in one button and answers it the same
-   way -- `.panel-status-indicators-box > .system-status-icon { padding: 0 }` --
-   so the padding goes and the 4px margin stays, which with the box's own
-   spacing leaves the gap the shell uses between two icons that belong
-   together. */
+   way -- `.panel-status-indicators-box > .system-status-icon { padding: 0 }`.
+
+   The margin has to go with it, and that is the less obvious half. A margin is
+   symmetrical about the icon, but the icon is not symmetrically placed: the
+   space it adds on the left lands against the button's edge, while the space
+   it adds on the right lands in the gap before the figure. So it made the
+   button lopsided -- 6px of padding plus 4px of margin before the icon,
+   against 6px of padding after the figure -- which is visible as soon as the
+   button is pointed at. With the margin gone the two edges are the padding and
+   nothing else, and the one gap inside is the box's own spacing. */
 .ai-usage-panel-box {
     spacing: 4px;
 }
 
 .ai-usage-panel-box .system-status-icon {
     padding: 0;
+    margin: 0;
 }
 
 .ai-usage-panel-label {
