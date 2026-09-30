@@ -1,9 +1,9 @@
 # AI Usage
 
 A GNOME Shell extension (UUID `ai-usage@jackicus`) that puts a button in the top
-bar showing how much of an AI subscription's rate limits have been used — the
-current session, the week, and the week per model — with the time each resets.
-GJS, ES modules, `metadata.json` claims shell 50.
+bar per AI subscription, showing how much of its rate limits have been used —
+the current session, the week, and the week per model — with the time each
+resets. GJS, ES modules, `metadata.json` claims shell 50.
 
 The name is plural on purpose: the architecture is multi-provider, and Claude is
 the first. Only Claude ships today, because it is the only one whose tool is
@@ -93,22 +93,28 @@ gamepad specific and does not apply.
 
 ```
 src/extension.js          the shipped entry point: imports lib/app.js
-src/lib/app.js            when to read, where the button sits, what settings mean
-src/lib/indicator.js      the panel button and the pop-up; renders Readings and
-                          nothing else -- no polling, no provider knowledge
+src/lib/app.js            when to read, which buttons exist and where they sit,
+                          what the settings mean
+src/lib/indicator.js      one panel button and its pop-up; renders the Readings
+                          it is handed and nothing else -- no polling, no
+                          provider knowledge, and no idea how many buttons
+                          there are
 src/lib/usage.js          Limit, Reading, Status, Severity and their wording.
                           Deliberately free of the shell's imports so that
                           scripts/providers.js can import it outside the shell
 src/lib/http.js           one libsoup session; GET returning parsed JSON
-src/lib/settings.js       the per-provider relocatable schema, and which
-                          switches a provider's capabilities justify. Imports
-                          nothing but Gio, so prefs.js can load it
+src/lib/settings.js       the per-provider relocatable schema, the two panel
+                          modes, and which switches a provider's capabilities
+                          and the current mode justify. Imports nothing but
+                          Gio, so prefs.js can load it
 src/lib/providers/registry.js  which providers exist, and how to add one
 src/lib/providers/claude.js    Claude, via Claude Code's stored login
 src/lib/providers/codex.js     Codex, via the Codex CLI's stored login --
                                written from openai/codex's source, NEVER RUN
 src/lib/providers/antigravity.js  Antigravity, via agy's keyring login
-src/icons/                a gauge, shipped because Adwaita has no reliable one
+src/icons/                the gauge, shipped because Adwaita has no reliable
+                          one; each button resolves its provider's own icon
+                          here and falls back to the gauge
 src/prefs.js              preferences; every row binds straight to a key
 ```
 
@@ -153,9 +159,44 @@ needs no schema change: `enabled`, `show-in-panel`, `show-per-model`,
 A provider declares a `capabilities` object, and the preferences offer only the
 switches it can honour — a provider with no per-model limits is never offered a
 per-model switch. The switches are applied in **one place**, `applyOptions()` in
-`app.js`: providers always return everything they know, and the renderer reads
-no settings at all. Turning a row off therefore costs no request — `_redraw()`
-re-applies the switches to figures already in hand.
+`settings.js`: providers always return everything they know, and the renderer
+reads no settings at all. Turning a row off therefore costs no request —
+`_redraw()` re-applies the switches to figures already in hand.
+
+### The two panel modes
+
+`panel-mode` decides how many buttons there are, and it is the one setting that
+changes what another setting *means*:
+
+* **`per-provider`** (the default) — one button per live provider, each with
+  that provider's own icon, its own figure and its own pop-up. A percentage
+  belongs to a subscription, so it has to sit beside something that names the
+  subscription; a single unlabelled figure would switch from one to another the
+  moment the second overtook the first.
+* **`combined`** — the older single button, carrying whichever provider is
+  closest to its limit and listing them all in one pop-up.
+
+`show-in-panel` says which providers may supply that one shared figure, so it
+means nothing in `per-provider` mode. It is not read there at all:
+`displayOptions(settings, mode)` returns `showInPanel: true` outside `combined`,
+because a switch left off from a spell in the other mode would otherwise take a
+whole button away. The preferences leave the row visible but insensitive in
+`per-provider` mode, so the window does not jump as the mode changes.
+
+Both modes are the same machinery in `app.js`: a map of buttons keyed by
+provider id (or by one constant for the combined button), each holding the
+provider ids whose readings it draws. `_syncButtons()` diffs what is on screen
+against what the mode and the live provider list call for, so switching a
+provider — or the whole mode — takes effect with no shell restart. A button's
+panel role is claimed for the life of its indicator, so the role is
+`${uuid}-${providerId}` per provider (the plain `uuid` for the combined one),
+and a *move* is still a reparent rather than a second `addToStatusArea`.
+`panel-box` and `panel-index` stay global: the buttons go in the chosen box,
+adjacent, in registry order from that index.
+
+Each button's icon is `provider.icon` resolved to `icons/<name>.svg`, falling
+back to `icons/ai-usage-symbolic.svg` when the property is absent or the file is
+not there — so a provider with no icon of its own still gets a button.
 
 `prefs.js` runs in its own process and can only load modules clear of St and of
 `resource://` paths. The registry and `settings.js` are deliberately kept that
@@ -199,5 +240,8 @@ not exist, and fails for any input at all.)
 * `PanelMenu.Button` defines `_init`, so `UsageIndicator` must use `_init` too.
   `UsageBar` extends `St.Bin`, which does not, so it takes the modern
   `constructor`/`super` form — which is also what the lint rules want.
-* `addToStatusArea` is the only way to move the button, so a move is a remove
-  and an add of the same actor.
+* `addToStatusArea` claims a role for the life of the indicator, so it cannot
+  also be used to move one: a move is a remove and an add of the same actor,
+  straight into the panel's box. Destroying an indicator is what releases its
+  role, which is why a provider can be switched off and on again without a
+  restart.

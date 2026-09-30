@@ -1,5 +1,17 @@
 // What holds the extension together: when to read the providers, where the
-// button sits, and what the settings mean.
+// buttons sit, and what the settings mean.
+//
+// There are two arrangements of the top bar, and `panel-mode` picks between
+// them. The default is a button per live provider: a percentage belongs to a
+// subscription, so it should sit beside an icon that names the subscription,
+// and with one shared button it could not -- an unlabelled figure would switch
+// from one subscription to another the moment the second overtook the first.
+// `combined` keeps the older single button, carrying whichever provider is
+// closest to its limit and listing them all in one pop-up, for anyone who
+// would rather spend one slot in the top bar than several.
+//
+// Both are the same machinery: a map of buttons, each drawing the readings it
+// was given. Only how many there are, and which readings each one gets, differ.
 //
 // The reading side is deliberately lazy. Polling on a timer is the fallback,
 // not the mechanism -- the two things that actually matter are opening the
@@ -16,11 +28,19 @@ import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import {Http} from './http.js';
 import {UsageIndicator} from './indicator.js';
 import {allProviders} from './providers/registry.js';
-import {applyOptions, displayOptions, providerSettings} from './settings.js';
+import {PanelMode, applyOptions, displayOptions, providerSettings} from './settings.js';
 import {Status} from './usage.js';
 import * as Log from './log.js';
 
 const PANEL_BOXES = {left: 'left', center: 'center', right: 'right'};
+
+// The gauge in icons/: the combined button's icon, and the fallback for a
+// provider that has been given no icon of its own, or whose file is missing.
+const FALLBACK_ICON = 'ai-usage-symbolic.svg';
+
+// The single button's key in the map of buttons. A provider id can never be
+// this, so the two modes cannot collide there.
+const COMBINED_KEY = '*combined*';
 
 // Past this much time with no input, a scheduled poll is skipped: nobody is
 // looking at the top bar, and opening the pop-up reads afresh anyway.
@@ -32,10 +52,17 @@ export class AiUsageApp {
         this._settings = extension.getSettings();
 
         this._http = null;
-        this._indicator = null;
+        this._buttons = new Map();   // key -> {indicator, menuId, providerIds}
         this._entries = [];     // {provider, settings, options} per live provider
         this._raw = [];         // what the providers returned, untouched
-        this._readings = [];    // the above with the display switches applied
+
+        // How every button draws its figure, and how many buttons there are.
+        // Held here rather than read at the point of use, so that a button
+        // built later -- a provider switched on mid-session -- starts out
+        // configured like the rest.
+        this._panelMode = PanelMode.PER_PROVIDER;
+        this._showPercent = true;
+        this._pick = reading => reading.worst;
 
         this._timerId = 0;
         this._debounceId = 0;
@@ -49,21 +76,11 @@ export class AiUsageApp {
     enable() {
         this._http = new Http(`gnome-shell-extension-ai-usage/${this._extension.metadata['version-name'] ?? 'dev'}`);
 
-        this._indicator = new UsageIndicator(this._extension.dir.get_child('icons').get_child('ai-usage-symbolic.svg'));
-        this._indicator.setFooter([
-            {label: 'Refresh now', action: () => this.refresh()},
-            {label: 'Preferences', action: () => this._extension.openPreferences()},
-        ]);
-        this._indicator.menu.connect('open-state-changed', (_menu, open) => {
-            if (open)
-                this.refresh();
-        });
-
+        // _applySettings() builds the live provider list, and with it the
+        // buttons the current mode calls for, so there is none to place here.
         this._applySettings();
         this._watchSettings();
-        this._placeIndicator();
 
-        this._indicator.setBusy();
         this.refresh();
         this._schedule();
     }
@@ -89,14 +106,15 @@ export class AiUsageApp {
 
         this._stopWatchingCredentials();
 
-        this._indicator?.destroy();
-        this._indicator = null;
+        // Every button goes, and the handler on each one's menu with it, for
+        // the same reason: enable() builds the whole arrangement again.
+        for (const key of [...this._buttons.keys()])
+            this._destroyButton(key);
 
         this._http?.destroy();
         this._http = null;
 
         this._raw = [];
-        this._readings = [];
         this._notified.clear();
     }
 
@@ -112,13 +130,23 @@ export class AiUsageApp {
         this._pollSeconds = s.get_int('poll-seconds');
         this._pollWhenIdle = s.get_boolean('poll-when-idle');
 
-        this._buildEntries();
+        const limitMode = s.get_string('primary-limit');
+        this._panelMode = s.get_string('panel-mode') === PanelMode.COMBINED
+            ? PanelMode.COMBINED
+            : PanelMode.PER_PROVIDER;
+        this._showPercent = s.get_boolean('show-percent');
+        this._pick = reading => pickLimit(reading, limitMode);
 
-        const mode = s.get_string('primary-limit');
-        this._indicator?.configure({
-            showPercent: s.get_boolean('show-percent'),
-            pick: reading => pickLimit(reading, mode),
-        });
+        // The panel mode has to be settled first: it decides both what buttons
+        // _buildEntries() ends up asking for and what `show-in-panel` means.
+        this._buildEntries();
+        for (const {indicator} of this._buttons.values()) {
+            indicator.configure({showPercent: this._showPercent, pick: this._pick});
+            // configure() redraws, which blanks the label of a button that has
+            // nothing to draw yet. setBusy() puts the ellipsis back, and does
+            // nothing at all once figures have arrived.
+            indicator.setBusy();
+        }
 
         this._watchCredentials();
     }
@@ -136,8 +164,13 @@ export class AiUsageApp {
                 Log.debug(`'${provider.cli}' is not installed; leaving ${provider.id} out.`);
                 continue;
             }
-            this._entries.push({provider, settings, options: displayOptions(settings)});
+            this._entries.push({
+                provider,
+                settings,
+                options: displayOptions(settings, this._panelMode),
+            });
         }
+        this._syncButtons();
         this._watchCredentials();
     }
 
@@ -171,11 +204,14 @@ export class AiUsageApp {
         const relayout = ['panel-box', 'panel-index'];
         const reread = ['warn-percent', 'critical-percent'];
 
-        for (const key of [...relayout, ...reread, 'primary-limit', 'show-percent', 'poll-seconds', 'poll-when-idle', 'notify-percent']) {
+        // 'panel-mode' needs no relayout of its own: changing it changes which
+        // buttons are wanted, and _syncButtons() tears down the old
+        // arrangement, builds the other and places it.
+        for (const key of [...relayout, ...reread, 'panel-mode', 'primary-limit', 'show-percent', 'poll-seconds', 'poll-when-idle', 'notify-percent']) {
             this._settingsIds.push(this._settings.connect(`changed::${key}`, () => {
                 this._applySettings();
                 if (relayout.includes(key))
-                    this._placeIndicator();
+                    this._placeButtons();
                 if (key === 'poll-seconds')
                     this._schedule();
                 // A changed threshold changes the severity of figures already
@@ -188,35 +224,168 @@ export class AiUsageApp {
         }
     }
 
-    // The first placement registers the button with the panel; every later one
-    // is a move. They cannot both go through addToStatusArea: it claims the
+    // ---- the buttons --------------------------------------------------------
+
+    // What the current mode calls for, in the order the buttons should sit in.
+    // Each one says which readings it draws, which is the only thing that
+    // differs between the two arrangements.
+    //
+    // The combined button is wanted whether or not any provider is live: with
+    // nothing to read it shows its icon and says so in the pop-up, which is
+    // what it has always done. A per-provider button with no provider would
+    // just be a button for nobody.
+    _wantedButtons() {
+        const icons = this._extension.dir.get_child('icons');
+        if (this._panelMode === PanelMode.COMBINED) {
+            return [{
+                key: COMBINED_KEY,
+                role: this._extension.uuid,
+                icon: icons.get_child(FALLBACK_ICON),
+                name: null,
+                providerIds: this._entries.map(e => e.provider.id),
+            }];
+        }
+
+        return this._entries.map(({provider}) => ({
+            key: provider.id,
+            // The role is claimed for the life of the indicator, so it has to
+            // be distinct per button or the second addToStatusArea throws.
+            role: `${this._extension.uuid}-${provider.id}`,
+            icon: this._iconFile(provider),
+            name: provider.displayName,
+            providerIds: [provider.id],
+        }));
+    }
+
+    // Brings the buttons on screen into line with what the mode and the live
+    // provider list call for. Switching a provider off destroys its button and
+    // leaves the others alone; switching it back on, or switching the mode
+    // over, builds what is missing -- no shell restart in either case.
+    _syncButtons() {
+        const wanted = this._wantedButtons();
+        const keys = new Set(wanted.map(w => w.key));
+        let changed = false;
+
+        for (const key of [...this._buttons.keys()]) {
+            if (!keys.has(key)) {
+                this._destroyButton(key);
+                changed = true;
+            }
+        }
+
+        for (const want of wanted) {
+            const existing = this._buttons.get(want.key);
+            if (existing) {
+                // The combined button outlives a provider being switched on or
+                // off; what it draws is all that changes.
+                existing.providerIds = want.providerIds;
+                continue;
+            }
+            const built = this._createButton(want);
+            if (built) {
+                this._buttons.set(want.key, built);
+                changed = true;
+            }
+        }
+
+        // Only a button appearing or going moves anything. The display
+        // switches change what a pop-up lists, not where the buttons sit.
+        if (changed)
+            this._placeButtons();
+    }
+
+    _createButton({icon, name, providerIds}) {
+        let indicator;
+        try {
+            indicator = new UsageIndicator(icon, name);
+        } catch (e) {
+            Log.error(`Could not build the '${name ?? 'combined'}' button`, e);
+            return null;
+        }
+
+        // Every pop-up carries the same two items. Refresh reads every live
+        // provider, not just this button's: the request is per provider, but a
+        // person asking for a refresh means all of it.
+        indicator.setFooter([
+            {label: 'Refresh now', action: () => this.refresh()},
+            {label: 'Preferences', action: () => this._extension.openPreferences()},
+        ]);
+        const menuId = indicator.menu.connect('open-state-changed', (_menu, open) => {
+            if (open)
+                this.refresh();
+        });
+
+        indicator.configure({showPercent: this._showPercent, pick: this._pick});
+        // Figures for a button built mid-session are a poll away, and a blank
+        // button in the meantime looks broken.
+        indicator.setBusy();
+        return {indicator, menuId, providerIds};
+    }
+
+    // Destroying the indicator is what releases its panel role: the shell drops
+    // it from Main.panel.statusArea on the indicator's own 'destroy'. That is
+    // why a provider, or a whole mode, can be switched off and on again without
+    // a restart.
+    _destroyButton(key) {
+        const button = this._buttons.get(key);
+        this._buttons.delete(key);
+        if (!button)
+            return;
+        if (button.menuId)
+            button.indicator.menu.disconnect(button.menuId);
+        button.indicator.destroy();
+    }
+
+    // A provider's own icon is what names the subscription a percentage belongs
+    // to, so it matters more here than it looks. `provider.icon` names a file
+    // in the extension's icons/; a provider that has none, or whose file is
+    // missing, falls back to the gauge rather than losing its button.
+    _iconFile(provider) {
+        const icons = this._extension.dir.get_child('icons');
+        const name = typeof provider.icon === 'string' ? provider.icon.replace(/\.svg$/, '') : '';
+        if (name) {
+            const file = icons.get_child(`${name}.svg`);
+            if (file.query_exists(null))
+                return file;
+            Log.debug(`No icon '${name}.svg' for ${provider.id}; using the generic one.`);
+        }
+        return icons.get_child(FALLBACK_ICON);
+    }
+
+    // The first placement of a button registers it with the panel; every later
+    // one is a move. They cannot both go through addToStatusArea: it claims the
     // role for good -- the role is only released when the indicator is
     // destroyed -- so calling it twice throws an extension point conflict.
     // A move therefore reparents the container into the panel's box itself,
     // which is what every extension that offers a position setting does.
-    _placeIndicator() {
-        if (!this._indicator)
-            return;
+    //
+    // Placed in the order _wantedButtons() gave them, from `panel-index`, so
+    // that which button is where does not depend on who answered first.
+    _placeButtons() {
         const boxName = PANEL_BOXES[this._settings.get_string('panel-box')] ?? 'right';
         const index = this._settings.get_int('panel-index');
-        const container = this._indicator.container;
-
-        if (!container.get_parent()) {
-            Main.panel.addToStatusArea(this._extension.uuid, this._indicator, index, boxName);
-            return;
-        }
-
         const target = panelBox(boxName);
-        if (!target) {
-            Log.warn(`The shell has no '${boxName}' panel box; leaving the button where it is.`);
-            return;
-        }
 
-        container.get_parent().remove_child(container);
-        // -1 means last, which insert_child_at_index already takes; any other
-        // index is clamped, since what else is in the box is not ours to know.
-        const count = target.get_n_children();
-        target.insert_child_at_index(container, index < 0 ? -1 : Math.min(index, count));
+        let offset = 0;
+        for (const want of this._wantedButtons()) {
+            const button = this._buttons.get(want.key);
+            if (!button)
+                continue;
+            const container = button.indicator.container;
+            const parent = container.get_parent();
+
+            if (!parent) {
+                Main.panel.addToStatusArea(want.role, button.indicator,
+                    position(target, index, offset), boxName);
+            } else if (target) {
+                parent.remove_child(container);
+                target.insert_child_at_index(container, position(target, index, offset));
+            } else {
+                Log.warn(`The shell has no '${boxName}' panel box; leaving the buttons where they are.`);
+                return;
+            }
+            offset++;
+        }
     }
 
     // ---- reading ------------------------------------------------------------
@@ -226,8 +395,7 @@ export class AiUsageApp {
     refresh() {
         if (!this._http || !this._entries.length) {
             this._raw = [];
-            this._readings = [];
-            this._indicator?.setReadings([]);
+            this._redraw();
             return;
         }
 
@@ -274,11 +442,19 @@ export class AiUsageApp {
     // off costs no request, and turning it back on restores it at once, because
     // the switches are applied to the untouched readings every time.
     _redraw() {
-        const byId = new Map(this._entries.map(e => [e.provider.id, e.options]));
-        this._readings = this._raw
-            .filter(reading => byId.has(reading.providerId))
-            .map(reading => applyOptions(reading, byId.get(reading.providerId)));
-        this._indicator?.setReadings(this._readings);
+        const byId = new Map(this._raw.map(reading => [reading.providerId, reading]));
+        const views = new Map();
+        for (const {provider, options} of this._entries) {
+            const reading = byId.get(provider.id);
+            if (reading)
+                views.set(provider.id, applyOptions(reading, options));
+        }
+
+        // Each button draws the readings it was built for: its provider's one,
+        // or every live provider's. A provider that has not answered yet is
+        // simply absent, which is what puts "Reading usage…" in its pop-up.
+        for (const {indicator, providerIds} of this._buttons.values())
+            indicator.setReadings(providerIds.map(id => views.get(id)).filter(v => v));
     }
 
     _cancelInFlight() {
@@ -406,6 +582,16 @@ function pickLimit(reading, mode) {
     default:
         return reading.worst;
     }
+}
+
+// -1 means last, which insert_child_at_index already takes -- and taken button
+// by button in order it still leaves them in the order they were asked for.
+// Any other index is clamped, since what else is in the box is not ours to know.
+function position(target, index, offset) {
+    if (index < 0)
+        return -1;
+    const count = target ? target.get_n_children() : index + offset;
+    return Math.min(index + offset, count);
 }
 
 // The panel's boxes are private, but reparenting into them is the only way to

@@ -9,7 +9,7 @@ import Gtk from 'gi://Gtk';
 import {ExtensionPreferences} from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
 
 import {allProviders} from './lib/providers/registry.js';
-import {keysFor, providerSettings} from './lib/settings.js';
+import {keyAppliesTo, keysFor, providerSettings} from './lib/settings.js';
 
 // prefs.js runs in its own process, without the shell's imports, so it can only
 // load modules that stay clear of St and of the shell's resource:// paths. The
@@ -22,38 +22,53 @@ export default class AiUsagePreferences extends ExtensionPreferences {
 
         window.add(this._buttonPage(settings));
         window.add(this._readingPage(settings));
-        window.add(this._providersPage());
+        // The provider rows need the global settings too: one of their
+        // switches only means something in one of the panel modes.
+        window.add(this._providersPage(settings));
     }
 
     _buttonPage(settings) {
         const page = new Adw.PreferencesPage({
-            title: 'Button',
+            title: 'Buttons',
             icon_name: 'preferences-desktop-appearance-symbolic',
         });
 
-        const shown = new Adw.PreferencesGroup({
-            title: 'What it shows',
-            description: 'The pop-up always lists every limit. This is the single figure on the button itself.',
+        const arrangement = new Adw.PreferencesGroup({
+            title: 'How many',
+            description: 'A button per provider keeps every percentage beside the icon of the subscription it '
+                + 'belongs to. A single button spends one slot in the top bar instead, carrying whichever provider '
+                + 'is closest to its limit and listing them all in the one pop-up.',
         });
-        shown.add(comboRow(settings, 'primary-limit', 'Figure on the button', [
+        arrangement.add(comboRow(settings, 'panel-mode', 'Buttons in the top bar', [
+            ['per-provider', 'One button per provider'],
+            ['combined', 'A single button for all of them'],
+        ]));
+        page.add(arrangement);
+
+        const shown = new Adw.PreferencesGroup({
+            title: 'What they show',
+            description: 'A pop-up always lists every limit. This is the single figure on the button itself.',
+        });
+        shown.add(comboRow(settings, 'primary-limit', 'Figure on each button', [
             ['highest', 'Whichever is highest'],
             ['session', 'Current session'],
             ['weekly', 'This week'],
         ]));
         shown.add(switchRow(settings, 'show-percent', 'Show the percentage',
-            'With this off the button is the icon alone, tinted by how much has been used.'));
+            'With this off a button is its icon alone, tinted by how much has been used.'));
         page.add(shown);
 
         const place = new Adw.PreferencesGroup({
-            title: 'Where it sits',
-            description: 'Which neighbours it lands between also depends on what other extensions have put in the top bar.',
+            title: 'Where they sit',
+            description: 'The buttons go side by side in the chosen end of the top bar. Which neighbours they land '
+                + 'between also depends on what other extensions have put there.',
         });
         place.add(comboRow(settings, 'panel-box', 'Part of the top bar', [
             ['left', 'Left, by Activities'],
             ['center', 'Centre, by the clock'],
             ['right', 'Right, among the status icons'],
         ]));
-        place.add(spinRow(settings, 'panel-index', 'Position', 'Counting from the middle of the bar; -1 puts it last.', -1, 20));
+        place.add(spinRow(settings, 'panel-index', 'Position', 'Where the first button goes, counting from the middle of the bar; -1 puts them last.', -1, 20));
         page.add(place);
 
         const colour = new Adw.PreferencesGroup({
@@ -93,7 +108,7 @@ export default class AiUsagePreferences extends ExtensionPreferences {
         return page;
     }
 
-    _providersPage() {
+    _providersPage(shared) {
         const page = new Adw.PreferencesPage({
             title: 'Providers',
             icon_name: 'system-users-symbolic',
@@ -103,18 +118,18 @@ export default class AiUsagePreferences extends ExtensionPreferences {
             title: 'Providers',
             description: 'This extension never signs you in and never stores a password. It reads the login that each '
                 + "provider's own command-line tool has already saved, so signing in and out stays in one place. "
-                + 'A provider needs that tool installed and already signed in; one whose tool is missing is left out '
-                + 'of the pop-up whatever its switch says.',
+                + 'A provider needs that tool installed and already signed in; one whose tool is missing gets no '
+                + 'button whatever its switch says.',
         });
 
         for (const provider of allProviders())
-            group.add(this._providerRow(provider));
+            group.add(this._providerRow(provider, shared));
 
         page.add(group);
         return page;
     }
 
-    _providerRow(provider) {
+    _providerRow(provider, shared) {
         const path = GLib.find_program_in_path(provider.cli);
         const tool = provider.cliName ?? provider.cli;
 
@@ -145,10 +160,25 @@ export default class AiUsagePreferences extends ExtensionPreferences {
 
         // Only the switches this provider can actually honour: its capabilities
         // decide, so a provider with no per-model limits is never offered one.
-        for (const {key, title, subtitle} of keysFor(provider)) {
-            const child = new Adw.SwitchRow({title, subtitle: subtitle ?? ''});
-            settings.bind(key, child, 'active', Gio.SettingsBindFlags.DEFAULT);
-            settings.bind('enabled', child, 'sensitive', Gio.SettingsBindFlags.GET);
+        for (const key of keysFor(provider)) {
+            const child = new Adw.SwitchRow({title: key.title, subtitle: key.subtitle ?? ''});
+            settings.bind(key.key, child, 'active', Gio.SettingsBindFlags.DEFAULT);
+            // Two things decide whether a row can be touched: the provider
+            // being switched on, and -- for a key that only means something in
+            // one panel mode -- the top bar being in that mode. A GSettings
+            // bind carries one source, so this is kept in step by hand. Left
+            // visible rather than hidden, so the window does not jump when the
+            // mode changes; insensitive says plainly that it does nothing.
+            const sync = () => {
+                child.sensitive = settings.get_boolean('enabled')
+                    && keyAppliesTo(key, shared.get_string('panel-mode'));
+            };
+            sync();
+            const watched = [
+                [settings, settings.connect('changed::enabled', sync)],
+                [shared, shared.connect('changed::panel-mode', sync)],
+            ];
+            child.connect('destroy', () => watched.forEach(([s, id]) => s.disconnect(id)));
             row.add_row(child);
         }
 

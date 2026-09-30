@@ -13,7 +13,7 @@
 import GLib from 'gi://GLib';
 import Gio from 'gi://Gio';
 
-import {applyOptions} from '../src/lib/settings.js';
+import {PanelMode, applyOptions, displayOptions} from '../src/lib/settings.js';
 import {AntigravityProvider} from '../src/lib/providers/antigravity.js';
 import {ClaudeProvider, planLabel, readAccountTier} from '../src/lib/providers/claude.js';
 import {CodexProvider} from '../src/lib/providers/codex.js';
@@ -221,6 +221,16 @@ print('\n\x1b[1mDisplay switches\x1b[0m — hiding a row must not throw it away'
     const offPanel = applyOptions(full, {...everything, showInPanel: false});
     check('panel eligibility follows the switch', offPanel.panelEligible, false);
     check('without changing the reading', full.panelEligible, true);
+
+    // `show-in-panel` decides which providers may supply the figure on the one
+    // shared button, so it means nothing when each provider has a button of its
+    // own -- and a stale switch honoured there would take a whole button away.
+    // A stub is enough: displayOptions only ever asks for booleans.
+    const allOff = {get_boolean: () => false};
+    const perProvider = applyOptions(full, displayOptions(allOff, PanelMode.PER_PROVIDER));
+    const combined = applyOptions(full, displayOptions(allOff, PanelMode.COMBINED));
+    check('a button each ignores show-in-panel', perProvider.panelEligible, true);
+    check('one shared button honours it', combined.panelEligible, false);
 }
 
 // The shapes that caused real bugs. Number(null) is 0, so a null percentage

@@ -1,8 +1,14 @@
-// The button in the top bar and the pop-up under it.
+// A button in the top bar and the pop-up under it.
 //
 // It renders Readings and nothing else: no polling, no provider knowledge, no
 // settings reads. Whatever put it on screen hands it a set of Readings with
 // setReadings(), and it draws them.
+//
+// How many of these there are, and which readings each one gets, is app.js's
+// business: one per provider carrying that provider's own reading and icon, or
+// a single one carrying them all. Nothing in here knows which arrangement it
+// is in -- a button given one reading and a button given four draw the same
+// way.
 
 import Clutter from 'gi://Clutter';
 import Gio from 'gi://Gio';
@@ -82,8 +88,11 @@ class UsageBar extends St.Bin {
 
 export const UsageIndicator = GObject.registerClass(
 class UsageIndicator extends PanelMenu.Button {
-    _init(iconFile) {
-        super._init(0.5, 'AI Usage', false);
+    // The icon and the name are the caller's: with a button per provider they
+    // are that provider's, and they are what tells two percentages in the top
+    // bar apart.
+    _init(iconFile, name) {
+        super._init(0.5, name ? `${name} usage` : 'AI Usage', false);
 
         this._box = new St.BoxLayout({style_class: 'ai-usage-panel-box'});
         this._icon = new St.Icon({
