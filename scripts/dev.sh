@@ -17,6 +17,8 @@
 #   ./scripts/dev.sh shots      the same throwaway shell, driven: open a button's
 #                               pop-up and the preferences, and write the
 #                               pictures to docs/screenshots/
+#   ./scripts/dev.sh assets     check that every icon that ships loads as one,
+#                               and that every icon a provider asks for is there
 #   ./scripts/dev.sh imports    check that the preferences can still load what
 #                               they load: nothing in prefs.js's import graph
 #                               may reach St, Clutter or Soup
@@ -223,6 +225,13 @@ cmd_shots() {
     "$REPO_DIR/scripts/nested.sh" --shots "$@"
 }
 
+# The icon checks: an SVG that gdk-pixbuf will not recognise ships happily and
+# shows nothing, which is a bug that once survived to the first screenshot.
+cmd_assets() {
+    require gjs
+    gjs -m "$REPO_DIR/scripts/assets.js"
+}
+
 # The import-graph check: prefs.js runs without the shell, so nothing it reaches
 # may import St, Clutter or Soup.
 cmd_imports() {
@@ -286,6 +295,7 @@ case "${1:-}" in
     providers)  cmd_providers ;;
     nested)     shift; cmd_nested "$@" ;;
     shots)      shift; cmd_shots "$@" ;;
+    assets)     cmd_assets ;;
     imports)    cmd_imports ;;
     parsers)    cmd_parsers ;;
     uninstall)  cmd_uninstall ;;

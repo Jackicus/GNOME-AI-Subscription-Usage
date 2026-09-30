@@ -296,6 +296,13 @@ not exist, and fails for any input at all.)
 
 ## Gotchas
 
+* **An icon must have `<svg` in its opening bytes.** gdk-pixbuf identifies a
+  file by sniffing the start of it, so a licence comment before the tag makes
+  the icon unrecognisable as an image — it renders fine in a browser, ships
+  fine, and simply does not appear. Every icon here therefore opens with the
+  declaration and the `<svg` element, and carries its comment *inside*. `make
+  assets` holds the rule, because the only other symptom is a button with
+  nothing beside the percentage.
 * **St has no CSS `opacity` and no percentage widths.** Secondary text is dimmed
   with actor opacity from `indicator.js`; the bar fill is sized against the
   track's allocation on `notify::width`. It does have `min-width`, which is what
