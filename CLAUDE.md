@@ -56,6 +56,14 @@ touched.
 
 ## Seeing it
 
+`make check` is everything that can be verified without a shell: ESLint, plus
+`./scripts/dev.sh parsers`, which runs each provider's parser over a fixture in
+`tests/fixtures/` and checks the result. **For a provider whose tool is not
+installed, that fixture is the only thing standing behind it** — the Codex
+parser has never seen a live response. Both parsers are also checked to degrade
+rather than throw on a shape they do not know, since a provider that throws
+takes the whole pop-up with it.
+
 `./scripts/dev.sh providers` runs the extension's **own provider modules** under
 plain `gjs` and prints what the button would show — CLI found, login stored,
 figures. It is the fastest way to tell a data problem from a drawing problem,
@@ -86,6 +94,8 @@ src/lib/settings.js       the per-provider relocatable schema, and which
                           nothing but Gio, so prefs.js can load it
 src/lib/providers/registry.js  which providers exist, and how to add one
 src/lib/providers/claude.js    Claude, via Claude Code's stored login
+src/lib/providers/codex.js     Codex, via the Codex CLI's stored login --
+                               written from openai/codex's source, NEVER RUN
 src/icons/                a gauge, shipped because Adwaita has no reliable one
 src/prefs.js              preferences; every row binds straight to a key
 ```

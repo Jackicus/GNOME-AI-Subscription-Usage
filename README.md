@@ -30,7 +30,13 @@ one place to sign out, and no second copy of your credentials.
 
 | Provider | Needs | Status |
 | --- | --- | --- |
-| Claude | Claude Code (`claude`), signed in | Supported |
+| Claude | Claude Code (`claude`), signed in | Working, verified against a live account |
+| Codex | the Codex CLI (`codex`), signed in with ChatGPT | Written, **never run against a live account** ([#8](https://github.com/Jackicus/GNOME-AI-Subscription-Usage/issues/8)) |
+
+Each provider is switched on or off separately in the preferences, along with
+what it shows — whether it may supply the figure on the button, whether its
+per-model limits are listed, and so on. A provider is only offered the switches
+it can actually honour.
 
 More can be added; see `CLAUDE.md`.
 
@@ -73,9 +79,13 @@ Claude (claude)
 ## Development
 
 `make help` lists everything. `make link` installs it as links into `src/` so
-edits reload with `make reload` and no shell restart; `make lint` runs
-gjs.guide's ESLint rules; `make pack` builds the zip and refuses to ship a stray
-file.
+edits reload with `make reload` and no shell restart; `make pack` builds the zip
+and refuses to ship a stray file.
+
+`make check` is everything verifiable without a GNOME Shell: gjs.guide's ESLint
+rules, plus `make parsers`, which runs each provider's parser over a saved
+response and checks what comes out. For a provider whose command-line tool is
+not installed on your machine, that is the only check there is.
 
 ## Licence
 
