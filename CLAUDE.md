@@ -90,11 +90,33 @@ session's — its settings come from the keyfile GSettings backend under a scrat
 state and log lines, which is how "2 button(s) — claude, antigravity" was first
 seen to be true rather than assumed.
 
-Headless proves it loads, enables, builds its buttons and reads its figures
-without throwing. It cannot prove what any of it *looks* like: the shell refuses
-`org.gnome.Shell.Screenshot` to a caller in a headless session ("Screenshot is
-not allowed"), so pixels still come from a person with a session — `--window`, or
-an ordinary install.
+Headless used to prove only that it loads. `./scripts/dev.sh shots` starts the
+same throwaway shell, **works its controls and photographs it** into
+`docs/screenshots/` — the top bar, a button's pop-up open, and each page of the
+preferences.
+
+The whole thing turns on one refusal and how to get round it. The shell will not
+screenshot for just anyone: `org.gnome.Shell.Screenshot` answers "Screenshot is
+not allowed" unless the caller is one of a few known services, and there is no
+other public API. But the throwaway shell has a bus of its own, and on that bus
+the name `org.gnome.SettingsDaemon.MediaKeys` is unclaimed — so
+`scripts/nested_driver.py` takes it, and is then a caller the shell will serve.
+That is the whole difference between this and every naive attempt. Input is the
+same driver: a `org.gnome.Mutter.RemoteDesktop` session, linked to a screencast
+purely so that pointer motion may be absolute rather than relative.
+
+Two things follow from that screencast, and the recipe in `nested.sh` is shaped
+by both. The shell puts a **recording indicator** in the top bar while it runs,
+which both lies about the extension and shoves every button along the bar; and
+the indicator only goes when the process that asked for one has exited. So a
+click and the photograph of what it opened are **separate runs of the driver**,
+and the coordinates a click uses are the ones measured with the indicator there.
+They are measured, because the shell will not say where an actor is: `--keep`
+leaves the shell up and prints the command to take a `shot` and look again.
+
+Both of the other two pieces come from the family: the driver is
+GNOME-Media-Controls' `nested_driver.py`, minus the screencast-mirror half that
+this project has no window for.
 
 ## Layout
 
@@ -131,6 +153,9 @@ src/prefs.js              preferences; every row binds straight to a key
 `scripts/dev-extension.js` replaces `src/extension.js` in a `make link` install
 so edits reload without restarting the shell; its staging walk is **recursive**,
 unlike the Media Controls one, because `lib/providers/` exists.
+`scripts/nested.sh` owns the throwaway shell and holds the shots recipe — which
+steps, which coordinates, which files; `scripts/nested_driver.py` is the
+screenshot and input driver it calls, and knows nothing about this extension.
 
 ## The other two providers
 
