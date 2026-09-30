@@ -93,11 +93,11 @@ code, so it is the quickest way to tell a data problem from a drawing problem.
 ```
 Claude (claude)
   cli:      /usr/bin/claude
-  plan:     Max 5x
+  plan:     Max (5x)
   limits:
-    Current session            [##----------------------]   8%  resets in 2h 40m
-    This week                  [#####-------------------]  22%  resets in 6 days
-    This week · Fable          [#######-----------------]  30%  resets in 6 days, in force
+    5-hour limit               [##----------------------]   8%  Resets in 2 hr 40 min
+    Weekly · all models        [#####-------------------]  22%  Resets Tue 15:00
+    Weekly · Fable             [#######-----------------]  30%  Resets Tue 15:00, in force
   week went to: Claude Code 100%
 
 Codex (codex)
@@ -107,8 +107,8 @@ Antigravity (antigravity)
   cli:      /home/hp/.local/bin/agy
   plan:     Free tier
   limits:
-    This week · Gemini Models  [########################] 100%  resets in 5 days, critical
-    This week · Claude and GPT models [------------------------]   0%  resets in 7 days
+    This week · Gemini Models  [########################] 100%  Resets Sun 20:12, critical
+    This week · Claude and GPT models [------------------------]   0%  Resets Tue 09:00
 ```
 
 ## Development

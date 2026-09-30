@@ -41,8 +41,14 @@
 }
 
 .ai-usage-limit {
-    padding-top: 4px;
-    padding-bottom: 6px;
+    padding-top: 5px;
+    padding-bottom: 5px;
+}
+
+/* Name, reset, percentage. The gap has to be wide enough that a long name and
+   a long reset time do not read as one string. */
+.ai-usage-limit-row {
+    spacing: 12px;
 }
 
 .ai-usage-limit-label {
@@ -54,17 +60,32 @@
     font-weight: bold;
 }
 
+/* The width of this cell is what makes the percentages line up down the right
+   edge: it is the only column with a size of its own, so the two beside it keep
+   the same edges from row to row. Wide enough for "100%" at this size, with the
+   figure aligned to the end of it from indicator.js. In em rather than pixels
+   so that it still holds "100%" on a desktop with the text scaled up. */
 .ai-usage-limit-percent {
+    min-width: 3.5em;
+}
+
+.ai-usage-limit-figure {
     font-feature-settings: "tnum";
     font-size: 0.95em;
 }
 
+.ai-usage-limit-reset {
+    font-size: 0.95em;
+}
+
+/* A rule rather than a trough, as Claude Code's own panel draws it: a few
+   pixels, square, and the empty part barely there -- what the eye should catch
+   is the fill, not the container. The grey is mid enough to sit correctly on a
+   light menu and a dark one alike. */
 .ai-usage-bar {
-    background-color: rgba(127, 127, 127, 0.3);
-    border-radius: 3px;
-    height: 6px;
-    margin-top: 4px;
-    margin-bottom: 3px;
+    background-color: rgba(127, 127, 127, 0.25);
+    height: 3px;
+    margin-top: 5px;
 }
 
 /* The accent colour is what GNOME 47 and later let the user choose, so a bar
@@ -72,8 +93,7 @@
    is the fallback for a shell whose CSS does not know -st-accent-color: an
    unknown value drops the declaration, leaving the one above standing. */
 .ai-usage-bar-fill {
-    border-radius: 3px;
-    height: 6px;
+    height: 3px;
     background-color: #3584e4;
     background-color: -st-accent-color;
 }

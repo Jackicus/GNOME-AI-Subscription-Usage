@@ -13,12 +13,13 @@
 import Clutter from 'gi://Clutter';
 import Gio from 'gi://Gio';
 import GObject from 'gi://GObject';
+import Pango from 'gi://Pango';
 import St from 'gi://St';
 
 import * as PanelMenu from 'resource:///org/gnome/shell/ui/panelMenu.js';
 import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
 
-import {Severity, Status, formatPercent, formatReset} from './usage.js';
+import {ResetFormat, Severity, Status, formatBreakdown, formatPercent, formatReset} from './usage.js';
 
 // Secondary text is dimmed with actor opacity rather than a colour, so it
 // stays legible whether the menu is light or dark.
@@ -50,9 +51,10 @@ function explain(reading) {
     }
 }
 
-// A track with a fill across part of it. St has no percentage widths, so the
-// fill is sized against the track's allocation each time that changes -- which
-// also covers the pop-up being opened at a different width.
+// A rule with a fill across part of it -- a few pixels tall, square, the
+// unfilled part barely there. St has no percentage widths, so the fill is sized
+// against the track's allocation each time that changes, which also covers the
+// pop-up being opened at a different width.
 const UsageBar = GObject.registerClass(
 class UsageBar extends St.Bin {
     // St.Bin adds no _init of its own, so this takes the modern constructor
@@ -110,6 +112,7 @@ class UsageIndicator extends PanelMenu.Button {
         this._readings = [];
         this._showPercent = true;
         this._pick = null;      // (reading) => Limit, set by whoever drives us
+        this._resetFormat = ResetFormat.AUTO;
 
         this._section = new PopupMenu.PopupMenuSection();
         this.menu.addMenuItem(this._section);
@@ -117,11 +120,13 @@ class UsageIndicator extends PanelMenu.Button {
         this.menu.addMenuItem(this._footer);
     }
 
-    // `pick` chooses the limit the button itself shows, so the setting that
-    // decides that lives with the settings and not in here.
-    configure({showPercent, pick}) {
+    // `pick` chooses the limit the button itself shows, and `resetFormat` how
+    // a reset time is worded, so the settings that decide both live with the
+    // settings and not in here.
+    configure({showPercent, pick, resetFormat}) {
         this._showPercent = showPercent;
         this._pick = pick;
+        this._resetFormat = resetFormat ?? ResetFormat.AUTO;
         this._render();
     }
 
@@ -210,7 +215,7 @@ class UsageIndicator extends PanelMenu.Button {
         }
 
         for (const limit of reading.limits)
-            this._section.addMenuItem(limitItem(limit));
+            this._section.addMenuItem(limitItem(limit, this._resetFormat));
 
         if (reading.credits)
             this._section.addMenuItem(limitItem({
@@ -219,12 +224,13 @@ class UsageIndicator extends PanelMenu.Button {
                 severity: reading.credits.severity ?? Severity.NORMAL,
                 resetsAt: null,
                 active: false,
-            }));
+            }, this._resetFormat));
 
-        if (reading.breakdown.length) {
-            const parts = reading.breakdown.map(row => `${row.label} ${formatPercent(row.percent)}`);
-            this._section.addMenuItem(captionItem(`This week: ${parts.join(' · ')}`));
-        }
+        // Silent unless it has something to report: one surviving row is 100%
+        // by definition, and under a row that is a limit it would read as one.
+        const breakdown = formatBreakdown(reading.breakdown);
+        if (breakdown)
+            this._section.addMenuItem(captionItem(breakdown));
     }
 
     // The items below the providers -- a refresh and the preferences -- are set
@@ -276,35 +282,63 @@ function headerItem(name, plan) {
     return item;
 }
 
-// Label and percentage on one line, the bar under it, when it resets under that.
-function limitItem(limit) {
+// One row per limit, laid out the way Claude Code's own /usage panel lays it
+// out: the name hard left, the reset dimmed and right-aligned beside it, the
+// percentage hard right, and the rule under all three.
+//
+// Three columns where the middle one changes width will not line up between
+// rows on their own, and the percentages lining up is the whole point of the
+// right-hand column. So exactly one column expands -- the name -- and it
+// absorbs every bit of slack in the row. That alone fixes the right edge of the
+// percentage column, but not its left edge, which would still slide about with
+// "9%" against "100%"; so the figure sits in a cell of its own with a width
+// from the stylesheet, and is aligned to the end of it. With that cell a fixed
+// size, the reset column's right edge is fixed too, and all three line up down
+// the pop-up.
+function limitItem(limit, resetFormat) {
     const item = inertItem('ai-usage-limit');
     const column = new St.BoxLayout({
         orientation: Clutter.Orientation.VERTICAL,
         x_expand: true,
     });
 
-    const top = new St.BoxLayout({x_expand: true});
-    const label = new St.Label({
+    const top = new St.BoxLayout({style_class: 'ai-usage-limit-row', x_expand: true});
+    const name = new St.Label({
         text: limit.label,
         style_class: limit.active ? 'ai-usage-limit-label ai-usage-active' : 'ai-usage-limit-label',
-    });
-    top.add_child(label);
-    top.add_child(new St.Label({
-        text: formatPercent(limit.percent),
-        style_class: `ai-usage-limit-percent ${SEVERITY_CLASS[limit.severity] ?? SEVERITY_CLASS[Severity.NORMAL]}`,
         x_expand: true,
+        y_align: Clutter.ActorAlign.CENTER,
+    });
+    // The name is the one column that may be cut: at a width that will not hold
+    // all three, a shortened label still says which limit this is, while a
+    // shortened figure or reset time would be wrong rather than brief.
+    name.clutter_text.ellipsize = Pango.EllipsizeMode.END;
+    top.add_child(name);
+
+    const reset = formatReset(limit.resetsAt, {format: resetFormat});
+    if (reset) {
+        const label = new St.Label({
+            text: reset,
+            style_class: 'ai-usage-limit-reset',
+            x_align: Clutter.ActorAlign.END,
+            y_align: Clutter.ActorAlign.CENTER,
+        });
+        label.opacity = DIM_OPACITY;
+        top.add_child(label);
+    }
+
+    // The cell takes the width; the label inside it takes the colour, so the
+    // severity paints the figure and not an empty box around it.
+    const figure = new St.Label({
+        text: formatPercent(limit.percent),
+        style_class: `ai-usage-limit-figure ${SEVERITY_CLASS[limit.severity] ?? SEVERITY_CLASS[Severity.NORMAL]}`,
         x_align: Clutter.ActorAlign.END,
-    }));
+        y_align: Clutter.ActorAlign.CENTER,
+    });
+    top.add_child(new St.Bin({style_class: 'ai-usage-limit-percent', child: figure}));
+
     column.add_child(top);
     column.add_child(new UsageBar(limit.percent / 100, limit.severity));
-
-    const reset = formatReset(limit.resetsAt);
-    if (reset) {
-        const caption = new St.Label({text: reset, style_class: 'ai-usage-caption'});
-        caption.opacity = DIM_OPACITY;
-        column.add_child(caption);
-    }
 
     item.add_child(column);
     return item;
