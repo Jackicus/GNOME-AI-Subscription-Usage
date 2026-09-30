@@ -258,8 +258,30 @@ put it and nothing quietly disagrees with it.
 It is laid out the way Claude Code's own `/usage` panel is, because these are
 Claude Code's figures and a second opinion is exactly what this is not meant to
 look like. One row per limit: the name hard left, the reset dimmed and
-right-aligned beside it, the percentage hard right, and a thin rule — not a
-trough — under all three.
+right-aligned beside it, the percentage hard right, and a bar under all three.
+
+**Every size in `stylesheet.css` is a number out of the shell's own theme**,
+read from `gnome-shell-theme.gresource` rather than judged by eye, because the
+thing this pop-up sits next to is Quick Settings and the only way to agree with
+it is to use its figures. The width is a Quick Settings panel's — two 12em
+tiles, 12px between, 18px either side, so a little over 27em, set on
+`menu.box`. The rows are `.popup-menu-item`'s own `padding: 9px 12px` and its
+6px `spacing`. The bar is `.slider`'s `-barlevel-height: 4px` with
+`border-radius: 999px` on the track and the fill, which is how the shell writes
+"a pill" everywhere. Round ends put a floor under `UsageBar._resize()`'s
+minimum sliver: a fill narrower than the bar is tall is a circle with its sides
+cut off, so the floor is the height, at which 1% is a dot and 0% is nothing.
+And the margin is even all four ways round — `.popup-menu-content`'s 6px plus
+12px of row padding is 18px, which is exactly what `.quick-settings` puts round
+itself — so the last row needs `padding-bottom: 12px` to match the sides.
+
+The button's own padding is from the same place: the shell's
+`-natural-hpadding` is 12px, which around an icon and two digits leaves the
+button detached from its own figure, so it takes the shell's other figure,
+`-minimum-hpadding: 6px`. `.system-status-icon`'s 6px of padding goes too —
+that is the shell sizing a button that is an icon alone, and it was holding the
+icon apart from the percentage beside it; the shell zeroes it for the same
+reason in `.panel-status-indicators-box`.
 
 Three columns line up between rows only if they are made to. **Exactly one
 column expands** — the name — so it absorbs all the slack, and the percentage
