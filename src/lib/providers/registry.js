@@ -6,6 +6,13 @@
 //   displayName  what the pop-up calls it
 //   cli          the command whose login it borrows, for the "install it first"
 //                message and for detect()
+//   icon         optional: the name of a symbolic icon shipped in src/icons/,
+//                without the extension, so 'claude-symbolic' is the file
+//                icons/claude-symbolic.svg. A plain string and nothing else --
+//                a Gio.File here would drag Gio's file machinery, and anything
+//                St-shaped would drag the shell, into the prefs process, which
+//                cannot load either. Absent, or naming a file that is not
+//                there, and the button falls back to the extension's own gauge.
 //   detect()     whether that command is on PATH at all; a provider that is not
 //                installed is left out of the pop-up entirely rather than
 //                shown as broken

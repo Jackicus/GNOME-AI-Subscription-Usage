@@ -51,6 +51,7 @@ export const AntigravityProvider = {
     displayName: 'Antigravity',
     cli: CLI,
     cliName: 'the Antigravity CLI (agy)',
+    icon: 'antigravity-symbolic',
 
     capabilities: {
         // The summary's buckets are grouped by model family, but those groups

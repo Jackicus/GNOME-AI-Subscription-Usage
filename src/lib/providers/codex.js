@@ -39,6 +39,7 @@ export const CodexProvider = {
     displayName: 'Codex',
     cli: CLI,
     cliName: 'the Codex CLI',
+    icon: 'codex-symbolic',
 
     capabilities: {
         perModel: true,     // additional_rate_limits[], one per metered model
