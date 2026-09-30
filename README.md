@@ -46,7 +46,7 @@ itself.
 | --- | --- | --- |
 | Claude | Claude Code (`claude`), signed in | Working, verified against a live account |
 | Antigravity | the Antigravity CLI (`agy`), signed in | Working, verified against a live account |
-| Codex | the Codex CLI (`codex`), signed in with ChatGPT | Written, **never run against a live account** ([#8](https://github.com/Jackicus/GNOME-AI-Subscription-Usage/issues/8)) |
+| Codex | the Codex CLI (`codex`), signed in with ChatGPT | Written, **never run against a live account** ([#8](https://github.com/Jackicus/GNOME-AI-Usage/issues/8)) |
 
 Where a tool keeps its login in the system keyring rather than a file — as the
 Antigravity CLI does — the extension reads it from there.
@@ -56,8 +56,8 @@ Antigravity CLI does — the extension reads it from there.
 Not on extensions.gnome.org yet.
 
 ```sh
-git clone https://github.com/Jackicus/GNOME-AI-Subscription-Usage
-cd GNOME-AI-Subscription-Usage
+git clone https://github.com/Jackicus/GNOME-AI-Usage
+cd GNOME-AI-Usage
 make install     # copy src/ into ~/.local/share/gnome-shell/extensions
 ```
 
