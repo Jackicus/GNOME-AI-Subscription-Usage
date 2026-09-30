@@ -11,6 +11,9 @@
 #                               provider, whether its command-line tool is
 #                               installed, whether a login is stored, and the
 #                               figures that come back
+#   ./scripts/dev.sh imports    check that the preferences can still load what
+#                               they load: nothing in prefs.js's import graph
+#                               may reach St, Clutter or Soup
 #   ./scripts/dev.sh parsers    run each provider's parser over a saved response
 #                               and check what comes out -- the only test that
 #                               needs no GNOME Shell, and the only check at all
@@ -202,6 +205,13 @@ cmd_providers() {
     gjs -m "$REPO_DIR/scripts/providers.js"
 }
 
+# The import-graph check: prefs.js runs without the shell, so nothing it reaches
+# may import St, Clutter or Soup.
+cmd_imports() {
+    require gjs
+    gjs -m "$REPO_DIR/scripts/imports.js"
+}
+
 # The parser checks. Fixtures live in tests/fixtures/.
 cmd_parsers() {
     require gjs
@@ -256,6 +266,7 @@ case "${1:-}" in
     logs)       cmd_logs "${2:-}" ;;
     pack)       cmd_pack ;;
     providers)  cmd_providers ;;
+    imports)    cmd_imports ;;
     parsers)    cmd_parsers ;;
     uninstall)  cmd_uninstall ;;
     status)     cmd_status ;;

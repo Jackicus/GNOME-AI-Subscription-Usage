@@ -162,11 +162,14 @@ re-applies the switches to figures already in hand.
 way — `claude.js` reads `e.status` duck-typed rather than importing `HttpError`,
 precisely so that Soup stays out of that import graph — so the preferences build
 their provider list from the **real** registry rather than a copy kept in step
-by hand. If you add an import to a provider module, check it still loads:
+by hand. `make imports` holds that rule: it walks everything `prefs.js` reaches
+and fails on an import of St, Clutter, Meta, Shell or Soup, then loads the two
+shared modules outside the shell to prove it rather than infer it. It is part of
+`make check`, so adding an import to a provider module says so at once.
 
-```sh
-gjs -m -c "import('./src/lib/providers/registry.js')"
-```
+(`gjs -m -c "import('...')"` is what this used to say, and it does not work: on
+gjs 1.88 `-m -c` resolves the snippet against a `<command line>` path that does
+not exist, and fails for any input at all.)
 
 ## Adding a provider
 
