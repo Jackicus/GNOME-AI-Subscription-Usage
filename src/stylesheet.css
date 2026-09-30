@@ -16,7 +16,13 @@
 
 /* Severity is a colour, on the button and on the figures in the pop-up. The
    normal case takes no colour at all -- it inherits the panel's foreground,
-   which keeps the button looking like part of the shell rather than a badge. */
+   which keeps the button looking like part of the shell rather than a badge.
+
+   These two are the only hardcoded colours here, and they are deliberate: they
+   are GNOME's own palette -- Yellow 5 and Red 4 -- which is what the shell's
+   theme uses for exactly these meanings, and both read correctly on a light
+   menu and a dark one. They are not arbitrary hex values to be tidied into
+   theme colours; St has no named colour for "warning" to use instead. */
 .ai-usage-warning {
     color: #e5a50a;
 }
@@ -76,6 +82,36 @@
 
 .ai-usage-limit-reset {
     font-size: 0.95em;
+}
+
+/* The actions at the foot of the pop-up, as Quick Settings draws its own: a
+   right-aligned row of circular icon buttons rather than two more full-width
+   rows, which at the bottom of a list of limits would read as more limits.
+
+   `icon-button` is the shell's own class and is set on the buttons themselves,
+   so the colours, the hover, the focus ring, :insensitive and :checked all come
+   from the theme and go on coming from it when the theme changes. Nothing of
+   that is repeated here. What is repeated is the one thing the class gets from
+   its surroundings rather than from itself: inside `.quick-settings` the shell
+   gives it `padding: 10.5px`, which is what turns a wide pill into a square
+   around a 16px icon, and this pop-up is not inside one. The radius then rounds
+   that square off. Written as a descendant selector for the same reason the
+   shell writes one -- so it outweighs the plain `.icon-button` rule whatever
+   order the stylesheets happen to load in. */
+.ai-usage-action-row {
+    spacing: 6px;
+}
+
+.ai-usage-action-row .icon-button {
+    padding: 10.5px;
+    border-radius: 99px;
+}
+
+/* The row sits under a separator, so it needs no rule of its own above it --
+   just enough room that the buttons are not crowded against the last limit. */
+.ai-usage-actions {
+    padding-top: 4px;
+    padding-bottom: 2px;
 }
 
 /* A rule rather than a trough, as Claude Code's own panel draws it: a few

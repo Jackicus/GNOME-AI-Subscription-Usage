@@ -13,7 +13,7 @@
 import GLib from 'gi://GLib';
 import Gio from 'gi://Gio';
 
-import {PanelMode, applyOptions, displayOptions} from '../src/lib/settings.js';
+import {PanelMode, applyOptions, buttonOptions, displayOptions} from '../src/lib/settings.js';
 import {AntigravityProvider} from '../src/lib/providers/antigravity.js';
 import {ClaudeProvider, planLabel, readAccountTier} from '../src/lib/providers/claude.js';
 import {CodexProvider} from '../src/lib/providers/codex.js';
@@ -302,6 +302,31 @@ print('\n\x1b[1mDisplay switches\x1b[0m — hiding a row must not throw it away'
     const combined = applyOptions(full, displayOptions(allOff, PanelMode.COMBINED));
     check('a button each ignores show-in-panel', perProvider.panelEligible, true);
     check('one shared button honours it', combined.panelEligible, false);
+}
+
+// A button made of nothing at all is the one arrangement of its two switches
+// that must never reach the top bar: it is a zero-width actor, invisible and
+// indistinguishable from the extension having failed to load. The rule lives in
+// buttonOptions() so that the renderer, the preferences and this all read the
+// same one.
+print('\n\x1b[1mThe button itself\x1b[0m — it must never end up empty');
+{
+    // A stub is enough: buttonOptions only ever asks for two booleans and an
+    // integer.
+    const stub = (showIcon, showPercent, size = 16) => ({
+        get_boolean: key => (key === 'show-icon' ? showIcon : showPercent),
+        get_int: () => size,
+    });
+
+    const both = buttonOptions(stub(true, true));
+    check('both switches on show both', `${both.showIcon} ${both.showPercent}`, 'true true');
+    check('the icon alone is allowed', buttonOptions(stub(true, false)).showPercent, false);
+    check('the figure alone is allowed', buttonOptions(stub(false, true)).showIcon, false);
+
+    const neither = buttonOptions(stub(false, false));
+    check('both off brings the icon back', neither.showIcon, true);
+    check('so there is always something to see', neither.showIcon || neither.showPercent, true);
+    check('the icon size is the setting', buttonOptions(stub(true, true, 24)).iconSize, 24);
 }
 
 // The shapes that caused real bugs. Number(null) is 0, so a null percentage

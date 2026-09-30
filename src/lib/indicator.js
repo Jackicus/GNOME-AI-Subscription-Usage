@@ -25,6 +25,10 @@ import {ResetFormat, Severity, Status, formatBreakdown, formatPercent, formatRes
 // stays legible whether the menu is light or dark.
 const DIM_OPACITY = 160;
 
+// What the shell's own panel icons are, and so what the icon is drawn at until
+// something says otherwise.
+const DEFAULT_ICON_SIZE = 16;
+
 const SEVERITY_CLASS = {
     [Severity.NORMAL]: 'ai-usage-normal',
     [Severity.WARNING]: 'ai-usage-warning',
@@ -110,6 +114,7 @@ class UsageIndicator extends PanelMenu.Button {
         this.add_child(this._box);
 
         this._readings = [];
+        this._showIcon = true;
         this._showPercent = true;
         this._pick = null;      // (reading) => Limit, set by whoever drives us
         this._resetFormat = ResetFormat.AUTO;
@@ -122,9 +127,13 @@ class UsageIndicator extends PanelMenu.Button {
 
     // `pick` chooses the limit the button itself shows, and `resetFormat` how
     // a reset time is worded, so the settings that decide both live with the
-    // settings and not in here.
-    configure({showPercent, pick, resetFormat}) {
+    // settings and not in here. `showIcon`, `showPercent` and `iconSize` are
+    // what the button is made of; the rule that stops the last of them being
+    // turned off is applied before they get here, in settings.js.
+    configure({showIcon = true, showPercent, iconSize, pick, resetFormat}) {
+        this._showIcon = showIcon;
         this._showPercent = showPercent;
+        this._icon.icon_size = iconSize > 0 ? iconSize : DEFAULT_ICON_SIZE;
         this._pick = pick;
         this._resetFormat = resetFormat ?? ResetFormat.AUTO;
         this._render();
@@ -143,7 +152,7 @@ class UsageIndicator extends PanelMenu.Button {
         if (this._readings.length)
             return;
         this._label.set_text('…');
-        this._label.visible = this._showPercent;
+        this._showFigure(true);
     }
 
     _render() {
@@ -159,7 +168,7 @@ class UsageIndicator extends PanelMenu.Button {
         // and turns the colour of the worst thing wrong.
         if (!usable.length) {
             this._label.set_text('');
-            this._label.visible = false;
+            this._showFigure(false);
             const broken = this._readings.some(r => r.status === Status.EXPIRED || r.status === Status.SIGNED_OUT);
             this._setPanelSeverity(broken ? Severity.WARNING : Severity.NORMAL);
             return;
@@ -174,13 +183,26 @@ class UsageIndicator extends PanelMenu.Button {
                 shown = limit;
         }
         if (!shown) {
-            this._label.visible = false;
+            this._showFigure(false);
             return;
         }
 
-        this._label.visible = this._showPercent;
         this._label.set_text(formatPercent(shown.percent));
+        this._showFigure(true);
         this._setPanelSeverity(shown.severity);
+    }
+
+    // The one arrangement a button must never end up in is empty: an actor with
+    // no icon and no figure is zero width, still there and still clickable in
+    // principle, and completely invisible -- which reads as the extension being
+    // broken rather than as anything anyone asked for. settings.js refuses that
+    // pair of switches; this is the same rule where the drawing happens, which
+    // is the only place that also knows the other way to have no figure -- that
+    // none has arrived yet, or that nothing readable came back at all. So the
+    // icon comes back whenever the figure is absent, whatever its switch says.
+    _showFigure(hasFigure) {
+        this._label.visible = hasFigure && this._showPercent;
+        this._icon.visible = this._showIcon || !this._label.visible;
     }
 
     _setPanelSeverity(severity) {
@@ -233,20 +255,54 @@ class UsageIndicator extends PanelMenu.Button {
             this._section.addMenuItem(captionItem(breakdown));
     }
 
-    // The items below the providers -- a refresh and the preferences -- are set
-    // by the caller, which owns both actions.
+    // The actions below the providers -- a refresh and the preferences -- are
+    // set by the caller, which owns both. They are drawn the way Quick Settings
+    // draws its own: a right-aligned row of circular icon buttons, which is the
+    // shape a GNOME menu's actions have, rather than two more full-width rows
+    // that would read as more limits.
     setFooter(items) {
         this._footer.removeAll();
         if (!items.length)
             return;
         this._footer.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
-        for (const {label, action} of items) {
-            const item = new PopupMenu.PopupMenuItem(label);
-            item.connect('activate', () => action());
-            this._footer.addMenuItem(item);
-        }
+
+        const row = inertItem('ai-usage-actions');
+        const buttons = new St.BoxLayout({
+            style_class: 'ai-usage-action-row',
+            x_expand: true,
+            x_align: Clutter.ActorAlign.END,
+        });
+        for (const {label, icon, action} of items)
+            buttons.add_child(actionButton(label, icon, action));
+        row.add_child(buttons);
+        this._footer.addMenuItem(row);
     }
 });
+
+// An action as Quick Settings draws one. `icon-button` is the shell's own
+// class, not an imitation of it: taking it means the hover, focus, :insensitive
+// and :checked states, and how all four behave on a light menu and a dark one,
+// come from the theme and keep coming from it when the theme changes. Only what
+// `.quick-settings` adds to that class has to be said again here, since this
+// menu is not inside one -- see the stylesheet.
+//
+// The label becomes the accessible name, because an icon on its own says
+// nothing at all to a screen reader.
+//
+// Whether an action closes the pop-up is the action's own business and stays
+// with the caller: a refresh leaves it open, because its whole point is the
+// figures you are looking at changing in front of you, and the preferences
+// close it, because a window is about to open over it.
+function actionButton(label, iconName, action) {
+    const button = new St.Button({
+        style_class: 'icon-button',
+        can_focus: true,
+        accessible_name: label,
+        child: new St.Icon({icon_name: iconName, style_class: 'popup-menu-icon'}),
+    });
+    button.connect('clicked', () => action());
+    return button;
+}
 
 // ---- the rows ---------------------------------------------------------------
 
