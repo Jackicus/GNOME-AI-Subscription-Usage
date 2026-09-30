@@ -59,3 +59,25 @@ export const PROVIDER_KEYS = [
 export function keysFor(provider) {
     return PROVIDER_KEYS.filter(k => !k.capability || provider.capabilities?.[k.capability]);
 }
+
+// The display switches, applied in one place so that neither the provider
+// modules nor the renderer read settings themselves.
+//
+// This returns a *view* -- a shallow copy sharing the prototype, so the getters
+// still work -- and never touches the Reading it was given. Filtering in place
+// would throw the hidden rows away, and turning a switch back on would then
+// show nothing until the next poll happened to come round.
+export function applyOptions(reading, options) {
+    if (!options)
+        return reading;
+
+    const view = Object.assign(Object.create(Object.getPrototypeOf(reading)), reading);
+    view.panelEligible = options.showInPanel;
+    view.limits = options.showPerModel
+        ? reading.limits
+        : reading.limits.filter(limit => !limit.scoped);
+    view.breakdown = options.showBreakdown ? reading.breakdown : [];
+    view.credits = options.showCredits ? reading.credits : null;
+    return view;
+}
+

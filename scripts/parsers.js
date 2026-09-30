@@ -13,6 +13,7 @@
 import GLib from 'gi://GLib';
 import Gio from 'gi://Gio';
 
+import {applyOptions} from '../src/lib/settings.js';
 import {ClaudeProvider} from '../src/lib/providers/claude.js';
 import {CodexProvider} from '../src/lib/providers/codex.js';
 import {Status, formatPercent} from '../src/lib/usage.js';
@@ -89,6 +90,31 @@ print('\n\x1b[1mCodex\x1b[0m — tests/fixtures/codex-usage.json  \x1b[2m(shape 
     check('null secondary window skipped', reading.limits.filter(l => l.scoped).length, 1);
     check('credits balance read', reading.credits?.label, 'Credits · 12 left');
     check('no breakdown for this provider', reading.breakdown.length, 0);
+}
+
+// The display switches must never destroy what they hide: turning one back on
+// has to restore the row at once, without waiting for the next poll.
+print('\n\x1b[1mDisplay switches\x1b[0m — hiding a row must not throw it away');
+{
+    const full = parse(ClaudeProvider, fixture('claude-usage.json'),
+        {rateLimitTier: 'default_claude_max_5x'});
+    const everything = {showInPanel: true, showPerModel: true, showBreakdown: true, showCredits: true};
+    const hidden = applyOptions(full, {...everything, showPerModel: false, showBreakdown: false});
+
+    check('per-model rows hidden in the view', hidden.limits.length, 2);
+    check('breakdown hidden in the view', hidden.breakdown.length, 0);
+    check('the reading itself is untouched', full.limits.length, 3);
+    check('its breakdown is untouched', full.breakdown.length, 1);
+
+    const restored = applyOptions(full, everything);
+    check('turning it back on restores the rows', restored.limits.length, 3);
+    check('and the breakdown', restored.breakdown.length, 1);
+    check('the view keeps its getters', restored.ok, true);
+    check('and its computed properties', formatPercent(restored.worst.percent), '97%');
+
+    const offPanel = applyOptions(full, {...everything, showInPanel: false});
+    check('panel eligibility follows the switch', offPanel.panelEligible, false);
+    check('without changing the reading', full.panelEligible, true);
 }
 
 // An unreadable response must degrade, never throw: a provider that throws

@@ -16,7 +16,7 @@ import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import {Http} from './http.js';
 import {UsageIndicator} from './indicator.js';
 import {allProviders} from './providers/registry.js';
-import {displayOptions, providerSettings} from './settings.js';
+import {applyOptions, displayOptions, providerSettings} from './settings.js';
 import {Status} from './usage.js';
 import * as Log from './log.js';
 
@@ -34,7 +34,8 @@ export class AiUsageApp {
         this._http = null;
         this._indicator = null;
         this._entries = [];     // {provider, settings, options} per live provider
-        this._readings = [];
+        this._raw = [];         // what the providers returned, untouched
+        this._readings = [];    // the above with the display switches applied
 
         this._timerId = 0;
         this._debounceId = 0;
@@ -86,6 +87,7 @@ export class AiUsageApp {
         this._http?.destroy();
         this._http = null;
 
+        this._raw = [];
         this._readings = [];
         this._notified.clear();
     }
@@ -216,6 +218,7 @@ export class AiUsageApp {
     // cancelled rather than raced, so the newest answer is always the one shown.
     refresh() {
         if (!this._http || !this._entries.length) {
+            this._raw = [];
             this._readings = [];
             this._indicator?.setReadings([]);
             return;
@@ -235,11 +238,11 @@ export class AiUsageApp {
     async _readAll(cancellable) {
         // Providers are independent, so they go out together; a slow one does
         // not hold up the rest.
-        const readings = await Promise.all(this._entries.map(async ({provider, options}) => {
+        const readings = await Promise.all(this._entries.map(async ({provider}) => {
             try {
                 const reading = await provider.read(this._http, cancellable, this._thresholds);
                 reading.cli = provider.cliName ?? provider.cli;
-                return applyOptions(reading, options);
+                return reading;
             } catch (e) {
                 if (e instanceof Gio.IOErrorEnum && e.matches(Gio.IOErrorEnum, Gio.IOErrorEnum.CANCELLED))
                     throw e;
@@ -253,16 +256,19 @@ export class AiUsageApp {
         if (cancellable.is_cancelled() || this._cancellable !== cancellable)
             return;
 
-        this._readings = readings.filter(r => r);
-        this._indicator?.setReadings(this._readings);
+        this._raw = readings.filter(r => r);
+        this._redraw();
+        // Notifications go off the untouched readings: a limit you chose not to
+        // list is still a limit you want to hear about before it stops you.
         this._maybeNotify();
     }
 
-    // Re-applies the display switches to figures already in hand. Turning a
-    // row off should not cost a request.
+    // Re-applies the display switches to figures already in hand. Turning a row
+    // off costs no request, and turning it back on restores it at once, because
+    // the switches are applied to the untouched readings every time.
     _redraw() {
         const byId = new Map(this._entries.map(e => [e.provider.id, e.options]));
-        this._readings = this._readings
+        this._readings = this._raw
             .filter(reading => byId.has(reading.providerId))
             .map(reading => applyOptions(reading, byId.get(reading.providerId)));
         this._indicator?.setReadings(this._readings);
@@ -357,7 +363,7 @@ export class AiUsageApp {
         if (!this._notifyAt)
             return;
 
-        for (const reading of this._readings) {
+        for (const reading of this._raw) {
             if (reading.status !== Status.OK)
                 continue;
             for (const limit of reading.limits) {
@@ -380,22 +386,6 @@ export class AiUsageApp {
             }
         }
     }
-}
-
-// The display switches, applied to a Reading in one place so that neither the
-// provider modules nor the renderer read settings themselves. Returns the same
-// object: a Reading is only ever built by its provider.
-function applyOptions(reading, options) {
-    if (!options)
-        return reading;
-    reading.panelEligible = options.showInPanel;
-    if (!options.showPerModel)
-        reading.limits = reading.limits.filter(limit => !limit.scoped);
-    if (!options.showBreakdown)
-        reading.breakdown = [];
-    if (!options.showCredits)
-        reading.credits = null;
-    return reading;
 }
 
 // The button shows one figure; this is which. "highest" is the default because
