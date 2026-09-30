@@ -290,8 +290,12 @@ export class AiUsageApp {
 
         // Only a button appearing or going moves anything. The display
         // switches change what a pop-up lists, not where the buttons sit.
-        if (changed)
+        if (changed) {
             this._placeButtons();
+            // What is actually in the top bar, which is the first thing worth
+            // knowing when someone says nothing appeared.
+            Log.debug(`Top bar: ${this._buttons.size} button(s) — ${[...this._buttons.keys()].join(', ')}`);
+        }
     }
 
     _createButton({icon, name, providerIds}) {

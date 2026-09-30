@@ -81,11 +81,20 @@ figures. It is the fastest way to tell a data problem from a drawing problem,
 and because it imports `src/lib/` rather than a copy, agreeing with the button is
 not a coincidence.
 
-The drawing itself needs a real shell. A never-before-seen UUID cannot be
-enabled in a running Wayland session, so the first run needs a log out and back
-in, or a nested shell. **There is no `nested.sh` here yet** — porting the one in
-`GNOME-Media-Controls` is the outstanding piece; about a third of it is VLC and
-gamepad specific and does not apply.
+The drawing itself needs a real shell, and a never-before-seen UUID cannot be
+enabled in a running Wayland session. `./scripts/dev.sh nested` is the way round
+that: a throwaway GNOME Shell with only this extension enabled, headless by
+default and `--window` to actually look at it. It writes nothing of the live
+session's — its settings come from the keyfile GSettings backend under a scratch
+`XDG_CONFIG_HOME`, so dconf is never opened — and it prints the extension's own
+state and log lines, which is how "2 button(s) — claude, antigravity" was first
+seen to be true rather than assumed.
+
+Headless proves it loads, enables, builds its buttons and reads its figures
+without throwing. It cannot prove what any of it *looks* like: the shell refuses
+`org.gnome.Shell.Screenshot` to a caller in a headless session ("Screenshot is
+not allowed"), so pixels still come from a person with a session — `--window`, or
+an ordinary install.
 
 ## Layout
 

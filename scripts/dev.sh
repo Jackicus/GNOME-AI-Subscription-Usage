@@ -11,6 +11,9 @@
 #                               provider, whether its command-line tool is
 #                               installed, whether a login is stored, and the
 #                               figures that come back
+#   ./scripts/dev.sh nested     run it in a throwaway GNOME Shell -- headless by
+#                               default, '--window' to look at it -- so a new
+#                               extension can be seen without logging out
 #   ./scripts/dev.sh imports    check that the preferences can still load what
 #                               they load: nothing in prefs.js's import graph
 #                               may reach St, Clutter or Soup
@@ -205,6 +208,12 @@ cmd_providers() {
     gjs -m "$REPO_DIR/scripts/providers.js"
 }
 
+# A throwaway GNOME Shell with only this extension in it. See scripts/nested.sh
+# for what it does and does not touch.
+cmd_nested() {
+    "$REPO_DIR/scripts/nested.sh" "$@"
+}
+
 # The import-graph check: prefs.js runs without the shell, so nothing it reaches
 # may import St, Clutter or Soup.
 cmd_imports() {
@@ -266,6 +275,7 @@ case "${1:-}" in
     logs)       cmd_logs "${2:-}" ;;
     pack)       cmd_pack ;;
     providers)  cmd_providers ;;
+    nested)     shift; cmd_nested "$@" ;;
     imports)    cmd_imports ;;
     parsers)    cmd_parsers ;;
     uninstall)  cmd_uninstall ;;
