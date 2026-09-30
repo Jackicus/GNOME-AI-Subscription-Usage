@@ -3,10 +3,10 @@
 A GNOME Shell extension that shows how much of your AI subscription you have
 used, as a button in the top bar.
 
-![The pop-up for Claude on a Max (20x) plan: the 5-hour limit at 10%, the week
+![The pop-up for Claude on a Max (20x) plan: the 5-hour limit at 12%, the week
 across all models at 27%, and the week for the model in force at 33%, each with
-a bar and the time it resets, above a refresh button and a preferences button
-drawn as circles.](docs/screenshots/pop-up.png)
+a bar and the time it resets, under a header carrying the plan and, at its right
+end, a refresh and an arrow to the preferences.](docs/screenshots/pop-up.png)
 
 It lists the limits your provider actually enforces — the current session, the
 week, and the week for each model — with the percentage used, a bar, and the
@@ -18,10 +18,10 @@ There is a button per subscription, carrying that subscription's current
 session — the window you are working in now — and tinted amber and then red as
 it climbs. The preferences will make it the highest of the limits instead.
 
-![Two buttons at the right of the top bar: the Claude mark reading 10%, and the
+![Two buttons at the right of the top bar: the Claude mark reading 12%, and the
 Antigravity mark in amber.](docs/screenshots/top-bar-cropped.png)
 
-Claude at 10%, and beside it Antigravity in amber — which is not a reading. That
+Claude at 12%, and beside it Antigravity in amber — which is not a reading. That
 is the warning tint: these were photographed in a throwaway session with no
 keyring, so Antigravity's stored login could not be read, and the button says so
 rather than showing a number.

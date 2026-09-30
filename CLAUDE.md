@@ -290,18 +290,40 @@ of it. That fixes the right edge of the figures and, because the cell is a fixed
 size, the reset column's right edge as well. The width is in `em`, so it still
 holds `100%` on a desktop with the text scaled up.
 
-The two actions at the foot of it — refresh and the preferences — are drawn the
-way Quick Settings draws its own: a right-aligned row of circular icon buttons,
-not two more full-width rows, which under a list of limits read as more limits.
-They take the shell's **own** `icon-button` class, so the colours, the hover, the
-focus ring, `:insensitive` and `:checked` all come from the theme and go on
-coming from it when the theme changes; each carries an `accessible_name`, since
-an icon alone says nothing to a screen reader. The one thing the stylesheet
-repeats is what that class gets from its surroundings rather than from itself:
-inside `.quick-settings` the shell gives it `padding: 10.5px`, and this pop-up is
-not inside one. Whether an action closes the pop-up is the action's own and
-stays in `app.js` — a refresh leaves it open, because the point is watching the
-figures change; the preferences close it, because a window is about to cover it.
+The two actions — refresh, and an arrow to the preferences — sit at the
+**right-hand end of the header row**, level with the provider's name and the
+plan. That is where Claude Code's own usage panel puts its `→` and where Quick
+Settings puts the one at the end of a slider, and it is what makes them free:
+the row was already there, so they cost no height at all (the footer they came
+out of cost 61px). They take the shell's **own** `icon-button flat` pair of
+classes, so the colours, the hover, the focus ring, `:insensitive` and
+`:checked` all come from the theme and go on coming from it when the theme
+changes, and `flat` is what makes the resting background the menu's own — no
+filled circle until the glyph is pointed at. Each carries an `accessible_name`,
+which matters more now than it did: an arrow and a circular arrow say nothing to
+a screen reader, and there is no longer even a filled shape to aim at. The one
+thing the stylesheet repeats is the padding, which that class gets from its
+surroundings rather than from itself — 6px across, from `.quick-slider`, and 2px
+down, so the button is exactly as tall as the header's own text and the row does
+not grow to hold it.
+
+**They belong to the pop-up, not to a provider**: refresh reads every live
+provider and there is one preferences window. In `per-provider` mode each pop-up
+has one header and the distinction is invisible; in `combined` mode there are
+several, and `indicator.js` draws the actions on the **first header only**. The
+empty state — nothing read yet, or no provider switched on — gets a header of
+its own to carry them, since a pop-up with no way to the preferences is a dead
+end exactly where someone needs it.
+
+Whether an action closes the pop-up is the action's own and stays in `app.js` —
+a refresh leaves it open, because the point is watching the figures change; the
+preferences close it, because a window is about to cover it.
+
+A negative margin is not the way to pull that arrow out flush with the
+percentages below it. St hands a negative preferred width straight up the tree:
+the shell logs `tried to allocate a size of -2147483648`, and the pop-up opens
+with nothing drawn in it — which looks exactly like the button failing to open a
+menu at all.
 
 `reset-format` decides the wording, in the pop-ups and the notifications alike —
 they are the same sentence, from the same `formatReset()`. `auto` is the default

@@ -315,15 +315,20 @@ export class AiUsageApp {
             return null;
         }
 
-        // Every pop-up carries the same two actions, drawn as Quick Settings
-        // draws its own. Refresh reads every live provider, not just this
-        // button's: the request is per provider, but a person asking for a
-        // refresh means all of it, and the pop-up stays open so that the
-        // figures can be watched changing. The preferences close it, since a
-        // window is about to open where it is.
-        indicator.setFooter([
+        // Every pop-up carries the same two actions, at the right-hand end of
+        // its first header. They belong to the pop-up rather than to any one
+        // provider, which is what the indicator's "first header only" rule is
+        // for: refresh reads every live provider, not just this button's --
+        // the request is per provider, but a person asking for a refresh means
+        // all of it -- and there is one preferences window whichever header
+        // the arrow was clicked beside.
+        //
+        // The pop-up stays open for a refresh, so that the figures can be
+        // watched changing; the preferences close it, since a window is about
+        // to open where it is.
+        indicator.setActions([
             {label: 'Refresh now', icon: 'view-refresh-symbolic', action: () => this.refresh()},
-            {label: 'Preferences', icon: 'emblem-system-symbolic', action: () => {
+            {label: 'Preferences', icon: 'go-next-symbolic', action: () => {
                 indicator.menu.close(true);
                 this._extension.openPreferences();
             }},

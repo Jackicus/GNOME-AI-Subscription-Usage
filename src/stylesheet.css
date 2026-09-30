@@ -99,6 +99,13 @@
     padding-bottom: 6px;
 }
 
+/* Name, plan, and the actions hard right. 8px is what keeps the plan a thing
+   beside the name rather than part of it; the slack between the plan and the
+   buttons is the row's own, not this spacing. */
+.ai-usage-header-row {
+    spacing: 8px;
+}
+
 .ai-usage-provider {
     font-weight: bold;
 }
@@ -148,38 +155,37 @@
     font-size: 0.95em;
 }
 
-/* The actions at the foot of the pop-up, as Quick Settings draws its own: a
-   right-aligned row of circular icon buttons rather than two more full-width
-   rows, which at the bottom of a list of limits would read as more limits.
+/* The two actions, at the right-hand end of the first header. `icon-button
+   flat` is the shell's own pair of classes, set on the buttons themselves, so
+   the colours, the hover, the focus ring, :insensitive and :checked all come
+   from the theme and go on coming from it when the theme changes -- and `flat`
+   is what makes the resting background the menu's own, so that nothing is drawn
+   round the glyph until it is pointed at. Nothing of that is repeated here.
 
-   `icon-button` is the shell's own class and is set on the buttons themselves,
-   so the colours, the hover, the focus ring, :insensitive and :checked all come
-   from the theme and go on coming from it when the theme changes. Nothing of
-   that is repeated here. What is repeated is the one thing the class gets from
-   its surroundings rather than from itself: inside `.quick-settings` the shell
-   gives it `padding: 10.5px`, which is what turns a wide pill into a square
-   around a 16px icon, and this pop-up is not inside one. The radius then rounds
-   that square off. Written as a descendant selector for the same reason the
-   shell writes one -- so it outweighs the plain `.icon-button` rule whatever
-   order the stylesheets happen to load in. */
+   What is repeated is the one thing the class gets from its surroundings rather
+   than from itself: its padding. `.icon-button`'s own is 0.818em, which around
+   a 16px icon is the circle these used to be; the shell cuts it to 6px for the
+   arrow at the end of a `.quick-slider` row, and this is that arrow. 6px stays
+   across, and 2px down -- so the button is 20px tall, which is the header's own
+   text, and the row does not grow to hold it.
+
+   The glyph therefore sits 6px in from the row's edge, where the percentages
+   below it are flush with it. That is the shell's own arrangement and it is
+   left alone: a negative margin to pull it back out makes St compute a
+   negative preferred width for the whole menu -- the shell logs "tried to
+   allocate a size of -2147483648" and the pop-up opens with nothing drawn in
+   it at all. 6px of padding is the button's click target, and it is worth
+   more than 6px of alignment.
+
+   The `.icon-button` rule is a descendant selector for the same reason the
+   shell writes its own -- so it outweighs the plain `.icon-button` rule
+   whatever order the two stylesheets happen to load in. */
 .ai-usage-action-row {
-    spacing: 6px;
+    spacing: 2px;
 }
 
 .ai-usage-action-row .icon-button {
-    padding: 10.5px;
-    border-radius: 99px;
-}
-
-/* Room above, so the buttons are their own thing and not a postscript to the
-   last limit -- they are the only rows here that are not a reading, and
-   nothing but space says so. The 12px below is what, with
-   `.popup-menu-content`'s own 6px, leaves the same 18px under the buttons as
-   `.popup-menu-item`'s 12px leaves to the left and right of every row: an even
-   margin all round, which is what `.quick-settings` gets from its own 18px. */
-.ai-usage-actions {
-    padding-top: 12px;
-    padding-bottom: 12px;
+    padding: 2px 6px;
 }
 
 /* The shell's own slider, which is the nearest thing it draws to this:
