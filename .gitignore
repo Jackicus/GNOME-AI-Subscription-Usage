@@ -16,5 +16,6 @@ __pycache__/
 # Development tooling only; nothing here ships
 node_modules/
 
-# Throwaway agent worktrees
-.claude/
+# Throwaway agent worktrees, and per-machine Claude Code settings
+.claude/worktrees/
+.claude/settings.local.json
