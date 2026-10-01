@@ -26,7 +26,7 @@
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 
-import {Limit, Severity, Status, numberOrNull, severityFor} from '../usage.js';
+import {Limit, Status, numberOrNull} from '../usage.js';
 import {detect, failureReading, parseTimestamp, readText, reading, unknownShapeReading} from './common.js';
 
 const USAGE_URL = 'https://api.anthropic.com/api/oauth/usage';
@@ -88,7 +88,7 @@ export const ClaudeProvider = {
             GLib.build_filenamev([GLib.get_home_dir(), '.claude.json']));
     },
 
-    async read(http, cancellable = null, thresholds = {warn: 80, critical: 95}) {
+    async read(http, cancellable = null) {
         const auth = readCredentials();
         if (!auth) {
             return reading(this, {status: Status.SIGNED_OUT});
@@ -108,17 +108,17 @@ export const ClaudeProvider = {
         }
 
         try {
-            return this._parse(body, auth, thresholds);
+            return this._parse(body, auth);
         } catch (e) {
             return unknownShapeReading(this, e, planLabel(auth));
         }
     },
 
-    _parse(body, auth, thresholds) {
+    _parse(body, auth) {
         const rows = Array.isArray(body?.limits) ? body.limits : null;
         const limits = rows?.length
-            ? rows.map(row => limitFromRow(row, thresholds)).filter(l => l)
-            : limitsFromWindows(body, thresholds);
+            ? rows.map(limitFromRow).filter(l => l)
+            : limitsFromWindows(body);
 
         if (!limits.length)
             throw new Error('no limits in the response');
@@ -130,7 +130,7 @@ export const ClaudeProvider = {
             plan: planLabel(auth),
             limits,
             breakdown: breakdownFrom(body),
-            credits: creditsFrom(body, thresholds),
+            credits: creditsFrom(body),
         });
     },
 };
@@ -139,7 +139,7 @@ export const ClaudeProvider = {
 
 // `limits` is the modern shape, and the one Claude Code's own usage screen is
 // built from: one row per limit, already carrying a percentage and a severity.
-function limitFromRow(row, thresholds) {
+function limitFromRow(row) {
     const kind = typeof row?.kind === 'string' ? row.kind : null;
     const percent = numberOrNull(row?.percent);
     if (!kind || percent === null)
@@ -149,7 +149,7 @@ function limitFromRow(row, thresholds) {
         id: kind,
         label: labelForRow(kind, row),
         percent,
-        severity: severityFor(percent, thresholds, row.severity),
+        severity: row.severity,
         resetsAt: parseTimestamp(row.resets_at),
         active: row.is_active === true,
         // Any scope at all means this row is metered against something
@@ -171,7 +171,7 @@ function labelForRow(kind, row) {
 
 // The older top-level windows, kept as a fallback in case `limits` goes away
 // again. Same numbers, less metadata.
-function limitsFromWindows(body, thresholds) {
+function limitsFromWindows(body) {
     const windows = [
         ['session', KIND_LABELS.session, body?.five_hour, false],
         ['weekly_all', KIND_LABELS.weekly_all, body?.seven_day, false],
@@ -188,7 +188,6 @@ function limitsFromWindows(body, thresholds) {
             id,
             label,
             percent,
-            severity: severityFor(percent, thresholds),
             resetsAt: parseTimestamp(window.resets_at),
             scoped,
         }));
@@ -208,7 +207,7 @@ function breakdownFrom(body) {
 }
 
 // Paid-for usage past the plan's limits. Absent for most accounts.
-function creditsFrom(body, thresholds) {
+function creditsFrom(body) {
     const extra = body?.extra_usage;
     if (!extra || typeof extra !== 'object')
         return null;
@@ -222,7 +221,6 @@ function creditsFrom(body, thresholds) {
         const spent = money(body?.spend?.used);
         return {
             percent: null,
-            severity: Severity.NORMAL,
             label: 'Extra usage · off',
             detail: spent ? `${spent} used` : null,
         };
@@ -239,7 +237,7 @@ function creditsFrom(body, thresholds) {
     const spent = money(body?.spend?.used);
     return {
         percent,
-        severity: severityFor(percent, thresholds, body?.spend?.severity),
+        severity: body?.spend?.severity,
         label: spent ? `Extra usage · ${spent} used` : 'Extra usage',
     };
 }

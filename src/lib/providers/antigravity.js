@@ -21,7 +21,7 @@ import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 import Secret from 'gi://Secret?version=1';
 
-import {Limit, Status, numberOrNull, severityFor} from '../usage.js';
+import {Limit, Status, numberOrNull} from '../usage.js';
 import * as Log from '../log.js';
 import {detect, failureReading, parseTimestamp, readText, reading} from './common.js';
 
@@ -75,7 +75,7 @@ export const AntigravityProvider = {
             [GLib.get_home_dir(), '.gemini', 'antigravity-cli', 'antigravity-oauth-token']));
     },
 
-    async read(http, cancellable = null, thresholds = {warn: 80, critical: 95}) {
+    async read(http, cancellable = null) {
         let auth;
         try {
             auth = await readCredentials(cancellable);
@@ -103,7 +103,7 @@ export const AntigravityProvider = {
                 throw new Error('the account has no Code Assist project');
 
             const body = await http.postJson(QUOTA_URL, headers, {project}, cancellable);
-            return this._parse(body, thresholds);
+            return this._parse(body);
         } catch (e) {
             if (e instanceof Gio.IOErrorEnum)
                 throw e;
@@ -131,14 +131,14 @@ export const AntigravityProvider = {
         return this._projectId;
     },
 
-    _parse(body, thresholds) {
+    _parse(body) {
         const groups = Array.isArray(body?.groups) ? body.groups : [];
         const limits = [];
 
         for (const group of groups) {
             const buckets = Array.isArray(group?.buckets) ? group.buckets : [];
             for (const bucket of buckets) {
-                const limit = limitFromBucket(group, bucket, thresholds);
+                const limit = limitFromBucket(group, bucket);
                 if (limit)
                     limits.push(limit);
             }
@@ -168,7 +168,7 @@ export const AntigravityProvider = {
 // *** Every other provider reports the figure the other way round, so getting
 // this backwards would put "100%" on the button at the moment a limit was
 // untouched. It is the single most dangerous line in this file.
-function limitFromBucket(group, bucket, thresholds) {
+function limitFromBucket(group, bucket) {
     // Strictly a real number: a null here would invert to 100% used and
     // report an untouched limit as exhausted.
     const remaining = numberOrNull(bucket?.remainingFraction);
@@ -183,7 +183,6 @@ function limitFromBucket(group, bucket, thresholds) {
         // label is built from the window and the model family instead.
         label: bucketLabel(group, bucket),
         percent,
-        severity: severityFor(percent, thresholds),
         resetsAt: parseTimestamp(bucket?.resetTime),
     });
 }

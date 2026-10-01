@@ -16,7 +16,7 @@
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 
-import {Limit, Status, numberOrNull, severityFor} from '../usage.js';
+import {Limit, Status, numberOrNull} from '../usage.js';
 import * as Log from '../log.js';
 import {detect, failureReading, readText, reading, unknownShapeReading} from './common.js';
 
@@ -56,7 +56,7 @@ export const CodexProvider = {
         return Gio.File.new_for_path(GLib.build_filenamev([codexHome(), 'auth.json']));
     },
 
-    async read(http, cancellable = null, thresholds = {warn: 80, critical: 95}) {
+    async read(http, cancellable = null) {
         const auth = readCredentials();
         if (!auth) {
             return reading(this, {status: Status.SIGNED_OUT});
@@ -95,18 +95,18 @@ export const CodexProvider = {
         }
 
         try {
-            return this._parse(body, auth, thresholds);
+            return this._parse(body, auth);
         } catch (e) {
             return unknownShapeReading(this, e, auth.plan);
         }
     },
 
-    _parse(body, auth, thresholds) {
+    _parse(body, auth) {
         const limits = [];
 
         const rate = body?.rate_limit;
-        pushWindow(limits, rate?.primary_window, thresholds, {fallbackId: 'primary'});
-        pushWindow(limits, rate?.secondary_window, thresholds, {fallbackId: 'secondary'});
+        pushWindow(limits, rate?.primary_window, {fallbackId: 'primary'});
+        pushWindow(limits, rate?.secondary_window, {fallbackId: 'secondary'});
 
         // Per-model buckets, each with a rate limit of the same shape. The id
         // is keyed on the model rather than the array position, so that it
@@ -116,9 +116,9 @@ export const CodexProvider = {
             const name = entry?.normal_model_slug || entry?.limit_name || entry?.metered_feature || null;
             const key = name ?? `bucket${index}`;
             const detail = entry?.rate_limit;
-            pushWindow(limits, detail?.primary_window, thresholds,
+            pushWindow(limits, detail?.primary_window,
                 {fallbackId: `model:${key}`, scoped: true, modelName: name});
-            pushWindow(limits, detail?.secondary_window, thresholds,
+            pushWindow(limits, detail?.secondary_window,
                 {fallbackId: `model:${key}:secondary`, scoped: true, modelName: name});
         });
 
@@ -136,7 +136,7 @@ export const CodexProvider = {
 
 // ---- the response -----------------------------------------------------------
 
-function pushWindow(limits, window, thresholds, {fallbackId, scoped = false, modelName = null}) {
+function pushWindow(limits, window, {fallbackId, scoped = false, modelName = null}) {
     const percent = numberOrNull(window?.used_percent);
     if (percent === null)
         return;
@@ -150,7 +150,6 @@ function pushWindow(limits, window, thresholds, {fallbackId, scoped = false, mod
         id: scoped ? fallbackId : canonicalId(seconds) ?? fallbackId,
         label: modelName ? `${base} · ${modelName}` : base,
         percent,
-        severity: severityFor(percent, thresholds),
         resetsAt: resetTime(window),
         scoped,
     }));

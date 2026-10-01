@@ -30,7 +30,7 @@ export class Limit {
         this.id = id;
         this.label = label;
         this.percent = clampPercent(percent);
-        this.severity = severity;
+        this.severity = severity;   // the service's own; applyOptions() adds the user's thresholds
         this.resetsAt = resetsAt;   // GLib.DateTime in UTC, or null when open-ended
         this.active = active;
         this.scoped = scoped;       // metered per model rather than per account
@@ -95,7 +95,9 @@ function clampPercent(value) {
 
 // Percentages are the backstop for a provider that sends no severity of its
 // own, and they also override one that is behind the thresholds the user set:
-// whichever reading is worse is the one shown.
+// whichever reading is worse is the one shown. It is applied at draw time, by
+// applyOptions(), so that moving a threshold recolours what is on screen
+// rather than asking every service again.
 export function severityFor(percent, {warn, critical}, reported = Severity.NORMAL) {
     const byPercent = percent >= critical
         ? Severity.CRITICAL
