@@ -58,6 +58,12 @@ export class AiUsageApp {
         // alike -- they are the same sentence, so they go through the same
         // function and answer to the same setting.
         this._resetFormat = ResetFormat.AUTO;
+        // The desktop's 12/24-hour setting, which that wording is on. Owned
+        // here, created in enable() and dropped in disable(), like every other
+        // object the extension holds.
+        this._interface = null;
+        this._interfaceId = 0;
+        this._clock = '24h';
 
         this._timerId = 0;
         this._debounceId = 0;
@@ -70,6 +76,8 @@ export class AiUsageApp {
 
     enable() {
         this._http = new Http(`gnome-shell-extension-ai-usage/${this._extension.metadata['version-name'] ?? 'dev'}`);
+
+        this._watchClock();
 
         // _applySettings() builds the live provider list, and with it the
         // buttons, so there is none to place here.
@@ -87,6 +95,11 @@ export class AiUsageApp {
         for (const id of this._settingsIds)
             this._settings.disconnect(id);
         this._settingsIds = [];
+
+        if (this._interfaceId)
+            this._interface.disconnect(this._interfaceId);
+        this._interfaceId = 0;
+        this._interface = null;
 
         // Disconnected by hand rather than left to garbage collection. The
         // shell disables at lock and enables again at unlock, so a handler
@@ -131,7 +144,7 @@ export class AiUsageApp {
 
         this._buildEntries();
         for (const {indicator} of this._buttons.values()) {
-            indicator.configure({showPercent: this._showPercent, pick: this._pick, resetFormat: this._resetFormat});
+            indicator.configure({showPercent: this._showPercent, pick: this._pick, resetFormat: this._resetFormat, clock: this._clock});
             // configure() redraws, which blanks the label of a button that has
             // nothing to draw yet. setBusy() puts the ellipsis back, and does
             // nothing at all once figures have arrived.
@@ -188,6 +201,26 @@ export class AiUsageApp {
         }
         this._providerSettingsById.set(id, {settings, handlerId});
         return settings;
+    }
+
+    // The desktop's schema may be absent on a stripped-down system, in which
+    // case the clock stays 24-hour rather than the extension failing to enable.
+    _watchClock() {
+        const schema = Gio.SettingsSchemaSource.get_default()?.lookup('org.gnome.desktop.interface', true);
+        if (!schema)
+            return;
+
+        this._interface = new Gio.Settings({settings_schema: schema});
+        this._readClock();
+        this._interfaceId = this._interface.connect('changed::clock-format', () => {
+            this._readClock();
+            this._applySettings();
+            this._redraw();
+        });
+    }
+
+    _readClock() {
+        this._clock = this._interface.get_string('clock-format') === '12h' ? '12h' : '24h';
     }
 
     _watchSettings() {
@@ -276,7 +309,7 @@ export class AiUsageApp {
                 this.refresh();
         });
 
-        indicator.configure({showPercent: this._showPercent, pick: this._pick, resetFormat: this._resetFormat});
+        indicator.configure({showPercent: this._showPercent, pick: this._pick, resetFormat: this._resetFormat, clock: this._clock});
         // Figures for a button built mid-session are a poll away, and a blank
         // button in the meantime looks broken.
         indicator.setBusy();
@@ -525,7 +558,7 @@ export class AiUsageApp {
                 // and the same setting -- as its own sentence here, because
                 // "Resets" is capitalised where it starts one.
                 const when = limit.resetsAt
-                    ? ` ${formatReset(limit.resetsAt, {format: this._resetFormat})}.`
+                    ? ` ${formatReset(limit.resetsAt, {format: this._resetFormat, clock: this._clock})}.`
                     : '';
                 Main.notify(`${reading.displayName} usage at ${Math.round(limit.percent)}%`,
                     `${limit.label}.${when}`);

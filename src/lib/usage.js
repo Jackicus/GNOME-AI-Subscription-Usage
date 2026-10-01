@@ -3,7 +3,6 @@
 // provider hands back a Reading built from these, and the interface renders it
 // without caring which service it came from.
 
-import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 
 // Why a limit could not be read. The interface words each of these itself,
@@ -122,8 +121,6 @@ export const ResetFormat = {
 // arithmetic on; "Tue 3:00 PM" is one you can act on.
 const AUTO_RELATIVE_MINUTES = 24 * 60;
 
-const DESKTOP_INTERFACE = 'org.gnome.desktop.interface';
-
 // "Resets in 1 hr 1 min", "Resets Tue 3:00 PM", "Resets now" -- Claude Code's
 // own wording, down to the abbreviations, because these are Claude Code's
 // figures and the button is not meant to look like a second opinion. Plain
@@ -131,8 +128,12 @@ const DESKTOP_INTERFACE = 'org.gnome.desktop.interface';
 // and keeping this module free of the shell's gettext is what lets
 // scripts/providers.js import it outside the shell.
 //
-// `now`, `clock` and `timezone` exist so the parser checks can pin the wording
-// against a fixed moment in a fixed place. Nothing that ships passes them, and
+// `clock` is the desktop's '12h' or '24h', which app.js reads from its own
+// Gio.Settings and hands down -- this module owns no settings object, so it
+// has nothing to release on disable. Anything else, or nothing, is a 24-hour
+// clock: a reset time in the wrong half of the day is still better than no
+// pop-up. `now` and `timezone` exist so the parser checks can pin the wording
+// against a fixed moment in a fixed place; nothing that ships passes them, and
 // each falls back to the real thing.
 export function formatReset(resetsAt, {format = ResetFormat.AUTO, now = null, clock = null, timezone = null} = {}) {
     if (!resetsAt)
@@ -190,7 +191,7 @@ function wallClockAt(resetsAt, now, clock, timezone) {
     if (!local || !here)
         return null;
 
-    const time = (clock ?? desktopClock()) === '12h'
+    const time = clock === '12h'
         ? local.format('%-I:%M %p')
         : local.format('%H:%M');
     if (!time)
@@ -199,31 +200,6 @@ function wallClockAt(resetsAt, now, clock, timezone) {
     const today = local.get_year() === here.get_year() &&
         local.get_day_of_year() === here.get_day_of_year();
     return today ? time : `${local.format('%a')} ${time}`;
-}
-
-// Looked up once and then read on every call: building the Gio.Settings is what
-// costs something, and the value can change while the extension is running.
-// Anything going wrong falls back to a 24-hour clock rather than throwing -- a
-// reset time in the wrong half of the day is still better than no pop-up.
-let clockSettings = null;
-let clockSettingsLookedUp = false;
-
-function desktopClock() {
-    if (!clockSettingsLookedUp) {
-        clockSettingsLookedUp = true;
-        try {
-            const schema = Gio.SettingsSchemaSource.get_default()?.lookup(DESKTOP_INTERFACE, true);
-            clockSettings = schema ? new Gio.Settings({settings_schema: schema}) : null;
-        } catch {
-            clockSettings = null;
-        }
-    }
-
-    try {
-        return clockSettings?.get_string('clock-format') === '12h' ? '12h' : '24h';
-    } catch {
-        return '24h';
-    }
 }
 
 function plural(n, unit) {
