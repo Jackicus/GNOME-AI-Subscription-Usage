@@ -3,8 +3,8 @@
 A GNOME Shell extension that shows how much of your AI subscription you have
 used, as a button in the top bar.
 
-![The pop-up for Claude on a Max (20x) plan: the 5-hour limit at 10%, the week
-across all models at 30%, and the week for Fable at 33%, each with a bar and the
+![The pop-up for Claude on a Max (5x) plan: the 5-hour limit at 12%, the week
+across all models at 34%, and the week for Opus at 41%, each with a bar and the
 time it resets; then "Extra usage · off" with 0.00 USD used, and a line saying
 where the week went. The header carries the plan and, at its right end, a
 refresh and an arrow to the preferences.](docs/screenshots/pop-up.png)
@@ -20,17 +20,13 @@ session — the window you are working in now — and tinted amber and then red 
 it climbs. The preferences can make it the week, or whichever limit is
 highest, instead.
 
-![Two buttons at the right of the top bar: the Claude mark reading 10%, and the
-Antigravity mark in amber.](docs/screenshots/top-bar-cropped.png)
-
-Claude at 10%, and beside it Antigravity in amber — which is not a reading. That
-is the warning tint: these were photographed in a throwaway session with no
-keyring, so Antigravity's stored login could not be read, and the button says so
-rather than showing a number.
+![Two buttons at the right of the top bar: the Claude mark reading 12%, and the
+Antigravity mark reading 40%.](docs/screenshots/top-bar-cropped.png)
 
 The pictures on this page are of GNOME Shell 50 in the dark theme, taken in the
-throwaway session `./scripts/dev.sh shots` drives. Light-theme versions of the
-top bar and the pop-up are beside them in `docs/screenshots/`.
+throwaway session `./scripts/dev.sh shots` drives, with stand-in logins and
+invented figures rather than anyone's account. Light-theme versions of the top
+bar and the pop-up are beside them in `docs/screenshots/`.
 
 ## You never sign in here
 
@@ -98,9 +94,9 @@ Each provider is switched on or off separately, along with what it shows — and
 provider is only offered the switches it can actually honour.
 
 ![The Providers page of the preferences, listing Claude Code found at
-/home/hp/.local/bin/claude, Codex with "the Codex CLI is not installed — this provider is
-left out", and Antigravity found at
-/home/hp/.local/bin/agy.](docs/screenshots/preferences-providers.png)
+/usr/bin/claude, Codex with "the Codex CLI is not installed — this provider is
+left out", and the Antigravity CLI found at
+/usr/bin/agy.](docs/screenshots/preferences-providers.png)
 
 <details>
 <summary>The other two pages</summary>
@@ -145,7 +141,7 @@ Codex (codex)
   'codex' is not on PATH -- the extension leaves this provider out.
 
 Antigravity (antigravity)
-  cli:      /home/hp/.local/bin/agy
+  cli:      /usr/bin/agy
   plan:     (unknown)
   status:   expired -- the stored login was rejected -- run its command-line tool once to refresh it
 ```

@@ -138,10 +138,18 @@ to look at and what never to touch):
   keyfile (`nested.sh`'s header says how).
 * `./scripts/dev.sh shots [--light]` — the same shell, driven and photographed
   into `docs/screenshots/` (`--light`: top bar and pop-up only, `*-light.png`).
+  It photographs a stand-in world, since the pictures are public: inside its
+  own user and mount namespace, stand-in `claude` and `agy` overlaid on
+  `/usr/bin` with `PATH` system-only, a scratch `HOME` with stand-in logins, and
+  this checkout's `src/` staged there with `./scripts/stand-in-http.js` over
+  `lib/http.js`, which answers with invented figures. No real path, login,
+  account or network reaches a shot; a provider added without an answer there
+  shows as unavailable. Plain `nested` still runs your install and logins.
 
 Input is a RemoteDesktop session whose recording indicator stays in the top
 bar until the driver exits, so a click and its photo are separate driver runs,
 and the click coordinates in `nested.sh` (`CLAUDE_BUTTON`, `TAB_*`) are
 measured with the indicator present. Antigravity's keyring lookup times out on
-the throwaway bus after about 25 s (`SETTLE_SECONDS`), and its button then
+the throwaway bus after about 25 s (`SETTLE_SECONDS`); under `shots` it then
+falls back to the stand-in token file, and under plain `nested` its button
 shows amber with no figure.
