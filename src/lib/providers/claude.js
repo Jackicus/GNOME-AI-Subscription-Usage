@@ -26,8 +26,8 @@
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 
-import {Limit, Reading, Severity, Status, numberOrNull, severityFor} from '../usage.js';
-import * as Log from '../log.js';
+import {Limit, Severity, Status, numberOrNull, severityFor} from '../usage.js';
+import {detect, failureReading, parseTimestamp, readText, reading, unknownShapeReading} from './common.js';
 
 const USAGE_URL = 'https://api.anthropic.com/api/oauth/usage';
 
@@ -70,7 +70,7 @@ export const ClaudeProvider = {
     },
 
     detect() {
-        return GLib.find_program_in_path(CLI) !== null;
+        return detect(CLI);
     },
 
     // The file to watch: Claude Code rewriting it means the token was refreshed,
@@ -91,11 +91,7 @@ export const ClaudeProvider = {
     async read(http, cancellable = null, thresholds = {warn: 80, critical: 95}) {
         const auth = readCredentials();
         if (!auth) {
-            return new Reading({
-                providerId: this.id,
-                displayName: this.displayName,
-                status: Status.SIGNED_OUT,
-            });
+            return reading(this, {status: Status.SIGNED_OUT});
         }
 
         let body;
@@ -108,40 +104,14 @@ export const ClaudeProvider = {
         } catch (e) {
             if (e instanceof Gio.IOErrorEnum)
                 throw e;   // cancelled: the caller is disabling or superseding us
-            return this._failure(e, auth);
+            return failureReading(this, e, planLabel(auth));
         }
 
         try {
             return this._parse(body, auth, thresholds);
         } catch (e) {
-            // The response arrived but was not the shape we knew. Say the
-            // figures are unavailable rather than showing a wrong number.
-            Log.warn(`Could not read Claude's usage response: ${e.message}`);
-            return new Reading({
-                providerId: this.id,
-                displayName: this.displayName,
-                status: Status.UNAVAILABLE,
-                plan: planLabel(auth),
-                message: 'The service answered in a shape this version does not know.',
-            });
+            return unknownShapeReading(this, e, planLabel(auth));
         }
-    },
-
-    _failure(e, auth) {
-        // Read duck-typed rather than against HttpError, so that a provider
-        // needs no import from the HTTP layer -- which is what keeps Soup out
-        // of the import graph and lets prefs.js load this registry.
-        const status = Number.isFinite(e?.status) ? e.status : 0;
-        // 401 and 403 are the stored token being stale or withdrawn, which is
-        // the one failure the user can do something about.
-        const expired = status === 401 || status === 403;
-        return new Reading({
-            providerId: this.id,
-            displayName: this.displayName,
-            status: expired ? Status.EXPIRED : Status.UNAVAILABLE,
-            plan: planLabel(auth),
-            message: expired ? null : e.message,
-        });
     },
 
     _parse(body, auth, thresholds) {
@@ -155,9 +125,7 @@ export const ClaudeProvider = {
 
         limits.sort((a, b) => kindRank(a.id) - kindRank(b.id));
 
-        return new Reading({
-            providerId: this.id,
-            displayName: this.displayName,
+        return reading(this, {
             status: Status.OK,
             plan: planLabel(auth),
             limits,
@@ -298,30 +266,14 @@ function humanise(kind) {
     return words.charAt(0).toUpperCase() + words.slice(1);
 }
 
-function parseTimestamp(value) {
-    if (typeof value !== 'string')
-        return null;
-    return GLib.DateTime.new_from_iso8601(value, null);
-}
-
 // ---- the stored login -------------------------------------------------------
 
 // Read fresh every poll, and nothing from it is kept: the token is handed
 // straight to the request and goes out of scope. Never logged, at any verbosity.
 function readCredentials() {
-    const file = ClaudeProvider.credentialsFile();
-    let contents;
-    try {
-        const [ok, bytes] = file.load_contents(null);
-        if (!ok)
-            return null;
-        contents = new TextDecoder().decode(bytes);
-    } catch (e) {
-        // Not being signed in is the ordinary case here, not a fault: there is
-        // no file until Claude Code has been logged into once.
-        Log.debug(`No Claude credentials to read: ${e.message}`);
+    const contents = readText(ClaudeProvider.credentialsFile(), 'Claude credentials');
+    if (contents === null)
         return null;
-    }
 
     try {
         const oauth = JSON.parse(contents)?.claudeAiOauth;
@@ -356,16 +308,9 @@ function readCredentials() {
 // through to the credentials rather than throwing: a missing plan name is fine,
 // a wrong one is not.
 export function readAccountTier(file) {
-    let contents;
-    try {
-        const [ok, bytes] = file.load_contents(null);
-        if (!ok)
-            return null;
-        contents = new TextDecoder().decode(bytes);
-    } catch (e) {
-        Log.debug(`No Claude account file to read: ${e.message}`);
+    const contents = readText(file, 'Claude account file');
+    if (contents === null)
         return null;
-    }
 
     try {
         const account = JSON.parse(contents)?.oauthAccount;

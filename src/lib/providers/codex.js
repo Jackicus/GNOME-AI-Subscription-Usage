@@ -16,8 +16,9 @@
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 
-import {Limit, Reading, Status, numberOrNull, severityFor} from '../usage.js';
+import {Limit, Status, numberOrNull, severityFor} from '../usage.js';
 import * as Log from '../log.js';
+import {detect, failureReading, readText, reading, unknownShapeReading} from './common.js';
 
 const USAGE_URL = 'https://chatgpt.com/backend-api/wham/usage';
 
@@ -48,7 +49,7 @@ export const CodexProvider = {
     },
 
     detect() {
-        return GLib.find_program_in_path(CLI) !== null;
+        return detect(CLI);
     },
 
     credentialsFile() {
@@ -58,19 +59,13 @@ export const CodexProvider = {
     async read(http, cancellable = null, thresholds = {warn: 80, critical: 95}) {
         const auth = readCredentials();
         if (!auth) {
-            return new Reading({
-                providerId: this.id,
-                displayName: this.displayName,
-                status: Status.SIGNED_OUT,
-            });
+            return reading(this, {status: Status.SIGNED_OUT});
         }
 
         // An API-key login is a real login with no subscription behind it, so
         // there are no windows to show. Saying that is more use than an error.
         if (!auth.accessToken) {
-            return new Reading({
-                providerId: this.id,
-                displayName: this.displayName,
+            return reading(this, {
                 status: Status.UNSUPPORTED,
                 message: 'Signed in with an API key, which is billed per request rather than against subscription limits.',
             });
@@ -79,11 +74,7 @@ export const CodexProvider = {
         // The token carries its own expiry, so a dead one is known without
         // spending a request to be told so.
         if (auth.expired) {
-            return new Reading({
-                providerId: this.id,
-                displayName: this.displayName,
-                status: Status.EXPIRED,
-            });
+            return reading(this, {status: Status.EXPIRED});
         }
 
         const headers = {
@@ -100,28 +91,13 @@ export const CodexProvider = {
         } catch (e) {
             if (e instanceof Gio.IOErrorEnum)
                 throw e;   // cancelled: the caller is disabling or superseding us
-            const status = Number.isFinite(e?.status) ? e.status : 0;
-            const expired = status === 401 || status === 403;
-            return new Reading({
-                providerId: this.id,
-                displayName: this.displayName,
-                status: expired ? Status.EXPIRED : Status.UNAVAILABLE,
-                plan: auth.plan,
-                message: expired ? null : e.message,
-            });
+            return failureReading(this, e, auth.plan);
         }
 
         try {
             return this._parse(body, auth, thresholds);
         } catch (e) {
-            Log.warn(`Could not read Codex's usage response: ${e.message}`);
-            return new Reading({
-                providerId: this.id,
-                displayName: this.displayName,
-                status: Status.UNAVAILABLE,
-                plan: auth.plan,
-                message: 'The service answered in a shape this version does not know.',
-            });
+            return unknownShapeReading(this, e, auth.plan);
         }
     },
 
@@ -149,9 +125,7 @@ export const CodexProvider = {
         if (!limits.length)
             throw new Error('no windows in the response');
 
-        return new Reading({
-            providerId: this.id,
-            displayName: this.displayName,
+        return reading(this, {
             status: Status.OK,
             plan: planLabel(body?.plan_type) ?? auth.plan,
             limits,
@@ -264,16 +238,9 @@ function codexHome() {
 // keep its login in the secret service instead, in which case there is no file
 // and this reports as signed out -- the same gap the Claude provider has.
 function readCredentials() {
-    let contents;
-    try {
-        const [ok, bytes] = CodexProvider.credentialsFile().load_contents(null);
-        if (!ok)
-            return null;
-        contents = new TextDecoder().decode(bytes);
-    } catch (e) {
-        Log.debug(`No Codex credentials to read: ${e.message}`);
+    const contents = readText(CodexProvider.credentialsFile(), 'Codex credentials');
+    if (contents === null)
         return null;
-    }
 
     let parsed;
     try {
