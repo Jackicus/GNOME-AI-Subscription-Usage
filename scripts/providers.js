@@ -62,7 +62,9 @@ async function report(http, provider) {
         const parts = reading.breakdown.map(row => `${row.label} ${formatPercent(row.percent)}`);
         print(`  week went to: ${parts.join(', ')}`);
     }
-    if (reading.credits)
+    if (reading.credits?.percent === null)
+        print(`  credits:  ${reading.credits.label}${reading.credits.detail ? ` -- ${reading.credits.detail}` : ''}`);
+    else if (reading.credits)
         print(`  credits:  ${reading.credits.label} (${formatPercent(reading.credits.percent)})`);
     print('');
 }
