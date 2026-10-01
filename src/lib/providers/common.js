@@ -40,11 +40,22 @@ export function readText(file, what) {
     }
 }
 
-// An ISO 8601 string as a GLib.DateTime, or null for anything else.
+// An ISO 8601 string as a GLib.DateTime, rounded to the nearest whole minute,
+// or null for anything else. The services jitter a reset by fractions of a
+// second from one call to the next, and now and then across a minute boundary
+// (13:59:59.748 and then 14:00:00.116), so the same reset would read as
+// "Tue 14:59" on one row and "Tue 15:00" on the next, and would not be the
+// same window to _maybeNotify(). Rounding here, once, for every provider, is
+// what makes a reset time the same thing every time it is read. Halves round
+// up: 14:00:30 is 14:01.
 export function parseTimestamp(value) {
     if (typeof value !== 'string')
         return null;
-    return GLib.DateTime.new_from_iso8601(value, null);
+    const at = GLib.DateTime.new_from_iso8601(value, null);
+    if (!at)
+        return null;
+    const seconds = at.to_unix() + at.get_microsecond() / 1e6;
+    return GLib.DateTime.new_from_unix_utc(Math.round(seconds / 60) * 60);
 }
 
 // The Reading for a request that failed.

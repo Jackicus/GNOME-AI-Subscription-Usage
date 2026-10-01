@@ -25,6 +25,13 @@ import {applyOptions, displayOptions, providerSettings} from './settings.js';
 import {ResetFormat, Status, formatReset} from './usage.js';
 import * as Log from './log.js';
 
+// Which limits have been notified, and for which window: limit key -> the
+// resets_at (as unix seconds) it was notified for. Module scope, not the app's,
+// because the shell disables the extension at lock and enables it again at
+// unlock, and an app built afresh would notify everything over again. It is
+// dropped when the module is, which is when the shell restarts.
+const notified = new Map();
+
 const PANEL_BOXES = {left: 'left', center: 'center', right: 'right'};
 
 // The gauge in icons/: the fallback for a provider that has been given no icon
@@ -71,7 +78,6 @@ export class AiUsageApp {
         this._monitors = [];
         this._settingsIds = [];
         this._providerSettingsById = new Map();
-        this._notified = new Map();   // limit id -> the resets_at it was notified for
     }
 
     enable() {
@@ -123,7 +129,6 @@ export class AiUsageApp {
         this._http = null;
 
         this._raw = [];
-        this._notified.clear();
     }
 
     // ---- settings -----------------------------------------------------------
@@ -526,27 +531,37 @@ export class AiUsageApp {
 
     // Once per limit per window. The window is identified by its reset time, so
     // the same limit notifies again after it resets and climbs again, but not
-    // twice on the way up.
+    // twice on the way up. The reset time is rounded to the minute by the
+    // parsers, so the service's jitter does not make a new window of it.
     _maybeNotify() {
         if (!this._notifyAt)
             return;
+
+        // Forget windows that have ended, so the set stays as small as the
+        // limits there are. A limit still past the line after its reset is
+        // reported with a new reset time, which is a new window anyway.
+        const now = GLib.DateTime.new_now_utc().to_unix();
+        for (const [key, resetsAt] of notified) {
+            if (resetsAt !== null && resetsAt < now)
+                notified.delete(key);
+        }
 
         for (const reading of this._raw) {
             if (reading.status !== Status.OK)
                 continue;
             for (const limit of reading.limits) {
                 const key = `${reading.providerId}:${limit.id}`;
-                const window = limit.resetsAt?.format_iso8601() ?? '';
+                const window = limit.resetsAt?.to_unix() ?? null;
 
                 if (limit.percent < this._notifyAt) {
                     // Below the line again -- usually a reset -- so let it speak
                     // next time it climbs.
-                    this._notified.delete(key);
+                    notified.delete(key);
                     continue;
                 }
-                if (this._notified.get(key) === window)
+                if (notified.has(key) && notified.get(key) === window)
                     continue;
-                this._notified.set(key, window);
+                notified.set(key, window);
 
                 // The same sentence the pop-up shows, from the same function
                 // and the same setting -- as its own sentence here, because

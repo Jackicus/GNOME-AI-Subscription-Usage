@@ -15,6 +15,7 @@ import Gio from 'gi://Gio';
 
 import {applyOptions} from '../src/lib/settings.js';
 import {AntigravityProvider} from '../src/lib/providers/antigravity.js';
+import {parseTimestamp} from '../src/lib/providers/common.js';
 import {ClaudeProvider, planLabel, readAccountTier} from '../src/lib/providers/claude.js';
 import {CodexProvider} from '../src/lib/providers/codex.js';
 import {ResetFormat, Status, formatBreakdown, formatPercent, formatReset} from '../src/lib/usage.js';
@@ -169,6 +170,25 @@ print('\n\x1b[1mClaude\x1b[0m — the plan name, and which file it comes from');
     Gio.File.new_for_path(dir).delete(null);
 }
 
+// A reset time as the services give it, which jitters. Every provider takes it
+// through parseTimestamp(), and the figure that comes back is the nearest whole
+// minute, so one reset is one moment however many times it is read (#39).
+print('\n\x1b[1mReset timestamps\x1b[0m — jitter in resets_at is rounded away');
+{
+    const unix = text => parseTimestamp(text)?.to_unix();
+    const minute = unix('2026-09-30T14:00:00+00:00');
+
+    check('either side of a minute boundary agree',
+        unix('2026-09-30T13:59:59.748885+00:00'), unix('2026-09-30T14:00:00.116803+00:00'));
+    check('and agree with the minute itself', unix('2026-09-30T13:59:59.748885+00:00'), minute);
+    check('a second apart across a boundary', unix('2026-09-30T13:59:59.500+00:00'), unix('2026-09-30T14:00:00.500+00:00'));
+    check('rounds down below the half', unix('2026-09-30T14:00:29.900+00:00'), minute);
+    check('rounds up from the half', unix('2026-09-30T14:00:30+00:00'), minute + 60);
+    check('an offset is the same moment', unix('2026-09-30T16:00:00.2+02:00'), minute);
+    check('not a string is no time', parseTimestamp(1790000000), null);
+    check('not a time is no time', parseTimestamp('soon'), null);
+}
+
 // How a reset is worded. Pinned against a fixed moment, in a fixed timezone,
 // with the clock setting passed in: the wording is the whole point of the
 // setting, and the machine's own timezone and clock would make every expected
@@ -279,7 +299,7 @@ print('\n\x1b[1mAntigravity\x1b[0m — tests/fixtures/antigravity-quota.json  \x
     check('the response label is NOT reused', reading.limits[1].label.includes('Remaining'), false);
     check('an exhausted bucket is critical', drawn(reading).limits[1].severity, 'critical');
     check('an untouched bucket is normal', drawn(reading).limits[2].severity, 'normal');
-    check('reset time parsed', reading.limits[1].resetsAt?.format_iso8601(), '2026-10-05T20:12:05Z');
+    check('reset time parsed, to the minute', reading.limits[1].resetsAt?.format_iso8601(), '2026-10-05T20:12:00Z');
     check('nothing is marked per-model', reading.limits.filter(l => l.scoped).length, 0);
 }
 
