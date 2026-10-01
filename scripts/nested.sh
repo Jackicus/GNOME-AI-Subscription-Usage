@@ -45,6 +45,21 @@
 # makes that possible is in the driver's own header -- the shell refuses
 # org.gnome.Shell.Screenshot to callers that are not one of a few known
 # services, and on a private bus that name is there for the taking.
+#
+# `shots` photographs a stand-in world, never yours, because the pictures go
+# into a public repository. It runs this script again inside a user and mount
+# namespace of its own, where:
+#
+#   * /usr/bin carries stand-in `claude` and `agy` (an overlay, seen by nothing
+#     outside the namespace), and PATH is /usr/local/bin:/usr/bin only, so the
+#     preferences say "found at /usr/bin/claude" whatever your own PATH holds;
+#   * HOME is a scratch directory under $RUN_DIR, holding stand-in logins and a
+#     copy of this checkout's src/ as the extension, with
+#     scripts/stand-in-http.js staged over lib/http.js -- so the providers
+#     read no real login, reach no network, and show invented figures.
+#
+# Which also means `shots` photographs this checkout, not what is installed.
+# `nested` without --shots stays the real thing: your install, your logins.
 
 set -uo pipefail
 
@@ -82,7 +97,7 @@ SETTLE_SECONDS=35
 # padding, the icon size, how many digits the figure has. A stale coordinate
 # does not fail -- it clicks the bar, nothing opens, and the pop-up picture is
 # of the wallpaper. `--keep` prints how to take a fresh `shot` and measure again.
-CLAUDE_BUTTON="1339 16"
+CLAUDE_BUTTON="1301 16"
 # The preferences window opens centred, so its tabs are at fixed points too.
 TAB_BUTTONS="677 201"
 TAB_READINGS="799 201"
@@ -109,12 +124,38 @@ done
 
 command -v gnome-shell >/dev/null || die "'gnome-shell' not found in PATH."
 command -v dbus-launch >/dev/null || die "'dbus-launch' not found in PATH (install dbus)."
-[[ -e "$EXT_DIR" || -L "$EXT_DIR" ]] || die "Nothing installed at $EXT_DIR. Run 'make link' first."
+if [[ "$shots" == "no" ]]; then
+    [[ -e "$EXT_DIR" || -L "$EXT_DIR" ]] || die "Nothing installed at $EXT_DIR. Run 'make link' first."
+fi
 
 if [[ "$shots" == "yes" ]]; then
     [[ "$mode" == "window" ]] && die "--shots drives a headless shell; drop --window."
     command -v python3 >/dev/null || die "'python3' not found in PATH; the driver needs it."
     python3 -c 'import gi' 2>/dev/null || die "python3 has no 'gi' (install python-gobject); the driver needs it."
+fi
+
+# The stand-in world the header describes. The overlay needs root in the
+# namespace, and everything after it wants to be you again (D-Bus and Wayland
+# check the uid), so it is two namespaces: root to mount, then back to your
+# own uid and gid to run this script again, which sees AI_USAGE_STAND_IN.
+STAND_IN_BIN="${XDG_RUNTIME_DIR:-/tmp}/ai-usage-stand-in"
+if [[ "$shots" == "yes" && -z "${AI_USAGE_STAND_IN:-}" ]]; then
+    unshare --user --map-root-user true 2>/dev/null \
+        || die "unshare cannot make a user namespace here; shots need one, to photograph a stand-in /usr/bin."
+    rm -rf "$STAND_IN_BIN"
+    mkdir -p "$STAND_IN_BIN"
+    for cli in claude agy; do
+        # Only ever looked for on PATH; nothing runs it.
+        printf '#!/bin/sh\n# A stand-in for the screenshots.\nexit 0\n' > "$STAND_IN_BIN/$cli"
+        chmod +x "$STAND_IN_BIN/$cli"
+    done
+    AI_USAGE_STAND_IN=1 unshare --user --map-root-user --mount -- bash -c '
+        mount -t overlay ai-usage-stand-in -o "lowerdir=$1:/usr/bin" /usr/bin || exit 1
+        exec unshare --user --map-user="$2" --map-group="$3" -- "${@:4}"' \
+        _ "$STAND_IN_BIN" "$(id -u)" "$(id -g)" "${BASH_SOURCE[0]}" "$@"
+    status=$?
+    rm -rf "$STAND_IN_BIN"
+    exit "$status"
 fi
 
 # A nested shell is a client of the one you are in; headless needs nobody.
@@ -147,6 +188,29 @@ if [[ "$light" == "yes" ]]; then
 color-scheme='prefer-light'
 EOF
     SUFFIX="-light"
+fi
+
+# Inside the stand-in namespace: a scratch HOME the shell finds the extension
+# in, and logins that are not anyone's. Every token is the word "stand-in";
+# stand-in-http.js never sends it anywhere.
+if [[ -n "${AI_USAGE_STAND_IN:-}" ]]; then
+    export HOME="$RUN_DIR/home"
+    export PATH="/usr/local/bin:/usr/bin"
+    stage="$HOME/.local/share/gnome-shell/extensions/$UUID"
+    mkdir -p "$(dirname "$stage")" "$HOME/.claude" "$HOME/.gemini/antigravity-cli"
+    cp -r "$REPO_DIR/src" "$stage"
+    glib-compile-schemas "$stage/schemas" || die "The schema does not compile."
+    cp "$REPO_DIR/scripts/stand-in-http.js" "$stage/lib/http.js"
+
+    cat > "$HOME/.claude/.credentials.json" <<'EOF'
+{"claudeAiOauth": {"accessToken": "stand-in", "subscriptionType": "max", "rateLimitTier": "default_claude_max_5x"}}
+EOF
+    cat > "$HOME/.claude.json" <<'EOF'
+{"oauthAccount": {"organizationRateLimitTier": "default_claude_max_5x"}}
+EOF
+    cat > "$HOME/.gemini/antigravity-cli/antigravity-oauth-token" <<EOF
+{"token": {"access_token": "stand-in", "expiry": "$(date -u -d '+1 day' +%FT%TZ)"}}
+EOF
 fi
 
 cleanup() {
@@ -242,7 +306,7 @@ take_shots() {
     # of the strip above by hand afterwards, because a picture nobody can
     # regenerate is a picture that goes stale the first time the buttons move --
     # which is exactly what happened to it. Dark only; the README has one.
-    [[ "$light" == "no" ]] && drive "shot $SHOT_DIR/top-bar-cropped.png 1354 0 244 28"
+    [[ "$light" == "no" ]] && drive "shot $SHOT_DIR/top-bar-cropped.png 1317 0 281 28"
 
     info "Opening a button's pop-up..."
     drive "click $CLAUDE_BUTTON" "wait 1.5"
@@ -291,6 +355,8 @@ echo
 printf '\033[1m%s\033[0m\n' "What it said for itself"
 if grep -q '\[AI Usage\]' "$LOG"; then
     grep '\[AI Usage\]' "$LOG" | sed 's/.*\[AI Usage\] /  /'
+elif [[ -n "${AI_USAGE_STAND_IN:-}" ]]; then
+    echo "  (nothing -- shots run the shipped entry point, which logs failures only)"
 else
     echo "  (nothing -- 'make link' installs the entry point that turns logging up)"
 fi
