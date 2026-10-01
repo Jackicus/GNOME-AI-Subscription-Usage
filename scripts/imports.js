@@ -4,9 +4,9 @@
 // prefs.js runs in its own process, without the shell. It cannot load St, or
 // Clutter, or anything under resource:///org/gnome/shell/ -- and it reaches the
 // provider registry and settings.js, so neither of those, nor anything they
-// import, may drag one in. That is why claude.js reads `e.status` duck-typed
-// instead of importing HttpError: one import of http.js would put Soup in the
-// graph and the preferences would stop opening.
+// import, may drag one in. That is why common.js's failureReading() reads
+// `e.status` duck-typed instead of importing HttpError: one import of http.js
+// would put Soup in the graph and the preferences would stop opening.
 //
 // It is an easy rule to break by accident and an invisible one to break: the
 // shell side keeps working, and only the preferences fail, in a process nobody

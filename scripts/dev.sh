@@ -24,9 +24,10 @@
 #                               they load: nothing in prefs.js's import graph
 #                               may reach St, Clutter, Meta, Shell, Soup or resource:// paths
 #   ./scripts/dev.sh parsers    run each provider's parser over a saved response
-#                               and check what comes out -- the only test that
-#                               needs no GNOME Shell, and the only check at all
-#                               for a provider whose tool is not installed here
+#                               and check what comes out -- the only check at
+#                               all for a provider whose tool is not installed here
+#   ./scripts/dev.sh schemas    check that the schema compiles with --strict, as
+#                               an install compiles it
 #   ./scripts/dev.sh uninstall  remove the extension
 #   ./scripts/dev.sh status     show what is currently installed and enabled
 #   ./scripts/dev.sh clean      remove the compiled schema and what the scripts
@@ -178,9 +179,7 @@ cmd_pack() {
     local out="$REPO_DIR/dist"
     local zip="$out/$UUID.shell-extension.zip"
 
-    # An install compiles the schema with --strict, so a warning here is a
-    # failed install there.
-    glib-compile-schemas --strict --dry-run "$SRC_DIR/schemas" || die "The schema does not pass --strict."
+    cmd_schemas
 
     mkdir -p "$out"
     info "Packing $UUID..."
@@ -215,6 +214,14 @@ check_pack() {
     [[ -z "$missing" ]] || die "Missing from the zip:"$'\n'"$missing"
     [[ -z "$extra" ]] || die "Should not be in the zip:"$'\n'"$extra"
     ok "Zip holds exactly the $(wc -l <<<"$expected") files that should ship."
+}
+
+# An install compiles the schema with --strict, so a warning here is a failed
+# install there. Nothing is written: --dry-run.
+cmd_schemas() {
+    require glib-compile-schemas
+    glib-compile-schemas --strict --dry-run "$SRC_DIR/schemas" || die "The schema does not pass --strict."
+    ok "The schema compiles with --strict."
 }
 
 # What the extension would see, run through the extension's own provider code.
@@ -301,6 +308,7 @@ case "${1:-}" in
     assets)     cmd_assets ;;
     imports)    cmd_imports ;;
     parsers)    cmd_parsers ;;
+    schemas)    cmd_schemas ;;
     uninstall)  cmd_uninstall ;;
     status)     cmd_status ;;
     clean)      cmd_clean ;;
