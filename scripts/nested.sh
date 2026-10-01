@@ -340,6 +340,13 @@ take_shots() {
 }
 
 report_shots() {
+    # The shell's screenshot writes a creation time and a timezone into each
+    # PNG; a public picture carries pixels only. oxipng also shrinks them.
+    if command -v oxipng >/dev/null 2>&1; then
+        oxipng --quiet --opt 4 --strip safe "$SHOT_DIR"/*.png
+    else
+        warn "oxipng is not installed: the shots still carry their text chunks. Strip them before committing."
+    fi
     echo
     printf '\033[1m%s\033[0m\n' "Screenshots"
     local shot

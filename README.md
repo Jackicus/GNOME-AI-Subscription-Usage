@@ -1,41 +1,42 @@
 # AI Usage
 
-A GNOME Shell extension that shows how much of your AI subscription you have
-used, as a button in the top bar.
+Shows how much of your AI subscriptions' rate limits you have used, as a button in the
+top bar: the current session, the week, and the week for each model, with the time each
+one resets.
 
-![The pop-up for Claude on a Max (5x) plan: the 5-hour limit at 12%, the week
-across all models at 34%, and the week for Opus at 41%, each with a bar and the
-time it resets; then "Extra usage · off" with 0.00 USD used, and a line saying
-where the week went. The header carries the plan and, at its right end, a
-refresh and an arrow to the preferences.](docs/screenshots/pop-up.png)
+![The pop-up for Claude on a Max (5x) plan, open under its top-bar button reading 12%:
+the 5-hour limit at 12%, resetting in 2 hr 22 min; the week across all models at 34% and
+the week for Opus at 41%, both resetting Mon 15:00, each with a bar; "Extra usage · off"
+with 0.00 USD used; and "Where this week went: Claude Code 88% · Chats 12%". The header
+has a refresh button and an arrow to the preferences.](docs/screenshots/pop-up.png)
 
-It lists the limits your provider actually enforces — the current session, the
-week, and the week for each model — with the percentage used, a bar, and the
-time it resets. The figures come from your provider's own account, by the same
-request its command-line tool makes for its own usage command, so what the top
-bar says and what the terminal says are the same numbers.
+## What it does
 
-There is a button per subscription, carrying that subscription's current
-session — the window you are working in now — and tinted amber and then red as
-it climbs. The preferences can make it the week, or whichever limit is
-highest, instead.
+- **A button per subscription**, carrying the provider's mark and the percentage of its
+  current session used. It turns amber at 80% and red at 95%, and both figures can be
+  changed.
+- **Every limit in one pop-up**: the session, the week and the week for each model, each
+  with a bar and the time it resets, plus paid extra usage and where the week's usage
+  went, when the provider reports them.
+- **The provider's own figures**, from the request its command-line tool makes for its
+  own usage command, so the top bar and the terminal agree.
+- **Fresh when you look**: a reading every five minutes, skipped while the session is
+  idle, and again when you open a pop-up whose figures are over a minute old.
+- **An optional notification** when a limit crosses a figure you choose, once per limit
+  until it resets.
+- **Your choice of figure and place**: the session, the week or whichever is highest, at
+  the left, centre or right of the top bar.
 
-![Two buttons at the right of the top bar: the Claude mark reading 12%, and the
+![Two buttons at the right of the top bar: the Claude mark reading 12% and the
 Antigravity mark reading 40%.](docs/screenshots/top-bar-cropped.png)
-
-The pictures on this page are of GNOME Shell 50 in the dark theme, taken in the
-throwaway session `./scripts/dev.sh shots` drives, with stand-in logins and
-invented figures rather than anyone's account. Light-theme versions of the top
-bar and the pop-up are beside them in `docs/screenshots/`.
 
 ## You never sign in here
 
-This extension never asks for a password and never signs you in or out. It reads
-the login that your provider's command-line tool has already stored, so that
-tool has to be installed and already signed in, and a provider whose tool isn't
-installed simply doesn't appear. If the stored login goes stale the button says
-so and asks you to run the tool once — starting it refreshes the login by
-itself.
+This extension never asks for a password and never signs you in or out. It reads the
+login that your provider's command-line tool has already stored, so that tool has to be
+installed and signed in, and a provider whose tool is not installed gets no button. It
+never refreshes a login either: if the stored login has expired, the button turns amber
+and the pop-up asks you to run the tool once, which refreshes it.
 
 ## Providers
 
@@ -45,122 +46,118 @@ itself.
 | Antigravity | the Antigravity CLI (`agy`), signed in | Working, verified against a live account |
 | Codex | the Codex CLI (`codex`), signed in with ChatGPT | Written, **never run against a live account** ([#8](https://github.com/Jackicus/GNOME-AI-Usage/issues/8)) |
 
-Where a tool keeps its login in the system keyring rather than a file — as the
-Antigravity CLI does — the extension reads it from there.
+Each provider is switched on or off in the preferences, and offered only the switches it
+can honour: per-model limits, where the usage went, extra usage.
 
 ## Requirements
 
-* GNOME Shell 50.
-* The command-line tool of each provider you want, already signed in (see
-  above).
-* To install from a clone: `make`, `glib-compile-schemas` and
-  `gnome-extensions`.
+- GNOME Shell 50.
+- The command-line tool of each provider you want, signed in, and on the `PATH` that
+  GNOME Shell was started with.
+- libsecret's introspection data, which GNOME normally has already (Debian and Ubuntu:
+  `gir1.2-secret-1`). The Antigravity CLI keeps its login in the system keyring.
 
-## Installing
+## Privacy and network
 
-Not on extensions.gnome.org yet.
+On every reading, for each provider switched on, the extension reads the stored login and
+sends it to that provider's own server, the same request the provider's tool makes:
+
+| Provider | Reads | Sends it to |
+| --- | --- | --- |
+| Claude | `~/.claude/.credentials.json`, and the plan name from `~/.claude.json` | `api.anthropic.com` |
+| Antigravity | the login in the system keyring, or `~/.gemini/antigravity-cli/antigravity-oauth-token` | `cloudcode-pa.googleapis.com` |
+| Codex | `auth.json` in `$CODEX_HOME`, or `~/.codex/auth.json` | `chatgpt.com` |
+
+Nothing else goes anywhere. The extension never writes to these files, never keeps a
+token between readings and never logs one. What it stores is its own settings, in
+dconf. These are the endpoints the tools themselves use, not published APIs, so a
+provider may change them; the button then says the usage could not be read.
+
+## Install
+
+It is not on extensions.gnome.org yet. From source, with `make`, `glib-compile-schemas`
+and `gnome-extensions`:
 
 ```sh
 git clone https://github.com/Jackicus/GNOME-AI-Usage
 cd GNOME-AI-Usage
-make install     # copy src/ into ~/.local/share/gnome-shell/extensions
+make install
 ```
 
-A brand-new extension cannot be enabled in a running Wayland session, so the
-first time you have to **log out and back in**, then:
+Then **log out and back in** (a Wayland session cannot load an extension it has never
+seen), and:
 
 ```sh
 gnome-extensions enable ai-usage@jackicus
 ```
 
-## Updating
+To update, `git pull && make install`, then log out and back in. To remove it,
+`make uninstall`.
+
+## Preferences
+
+`gnome-extensions prefs ai-usage@jackicus` opens them, as does the arrow in any pop-up.
+
+| Buttons | Readings | Providers |
+| --- | --- | --- |
+| ![The Buttons page: which figure each button carries, set to Current session; a switch for showing the percentage; how reset times are worded; and the start of where the buttons sit.](docs/screenshots/preferences-buttons.png) | ![The Readings page: 300 seconds between readings, and Notify at 0, which turns notifications off.](docs/screenshots/preferences-readings.png) | ![The Providers page: Claude Code found at /usr/bin/claude, the Codex CLI not installed so Codex is left out, and the Antigravity CLI (agy) found at /usr/bin/agy, each with a switch.](docs/screenshots/preferences-providers.png) |
+
+- **Buttons**: the figure each button carries, whether the percentage is shown beside the
+  icon, how reset times are worded, which end of the top bar the buttons sit in and
+  where, and the figures at which they turn amber and red.
+- **Readings**: seconds between readings (60 to 3600), and the figure at which a limit
+  notifies you (0 for never).
+- **Providers**: each provider's switch, where its tool was found, and what its pop-up
+  lists.
+
+## Troubleshooting
+
+Follow the shell's log while you reproduce the problem:
 
 ```sh
-git pull && make install
+journalctl -f -o cat /usr/bin/gnome-shell | grep -i 'ai usage'
 ```
 
-Then log out and back in: the shell does not re-import the JavaScript of an
-extension that is already running.
-
-## Uninstalling
+and for the preferences window, which is its own process:
 
 ```sh
-make uninstall
+journalctl -f -o cat SYSLOG_IDENTIFIER=org.gnome.Shell.Extensions
 ```
 
-## The preferences
+From a clone, `make status` says whether it is installed and what state the running
+shell has it in, `make logs` follows the log, and `make providers` runs the provider code
+outside the shell and prints what each button would show. That last one reads your
+stored logins and goes online, just as the buttons do.
 
-Each provider is switched on or off separately, along with what it shows — and a
-provider is only offered the switches it can actually honour.
-
-![The Providers page of the preferences, listing Claude Code found at
-/usr/bin/claude, Codex with "the Codex CLI is not installed — this provider is
-left out", and the Antigravity CLI found at
-/usr/bin/agy.](docs/screenshots/preferences-providers.png)
-
-<details>
-<summary>The other two pages</summary>
-
-![The Buttons page: which figure each button carries, whether the percentage is
-shown beside the icon, how reset times are worded, and the start of where the
-buttons sit in the top bar.](docs/screenshots/preferences-buttons.png)
-
-![The Readings page: seconds between readings, and the figure at which a limit
-notifies you (zero for never).](docs/screenshots/preferences-readings.png)
-
-</details>
-
-## If nothing appears
-
-Take these in order — each rules out one layer:
-
-```sh
-make status      # is it installed, and does the running shell know about it?
-make providers   # can it read the figures at all, outside the shell?
-make logs        # what the shell says about it
-```
-
-`make providers` is the useful one: if it prints your figures then the data side
-is fine and the problem is the button, and if it does not then the button was
-never going to show anything.
-
-<details>
-<summary>What <code>make providers</code> looks like</summary>
-
-```
-Claude (claude)
-  cli:      /usr/bin/claude
-  plan:     Max (20x)
-  limits:
-    5-hour limit               [------------------------]   0%  Resets in 4 hr 52 min
-    Weekly · all models        [######------------------]  24%  Resets Tue 15:00
-    Weekly · Fable             [#######-----------------]  30%  Resets Tue 15:00, in force
-  week went to: Claude Code 100%
-
-Codex (codex)
-  'codex' is not on PATH -- the extension leaves this provider out.
-
-Antigravity (antigravity)
-  cli:      /usr/bin/agy
-  plan:     (unknown)
-  status:   expired -- the stored login was rejected -- run its command-line tool once to refresh it
-```
-
-It runs the extension's own provider modules outside the shell, so it is reading
-the same code the button does.
-
-</details>
-
-A provider missing from the pop-up means its command-line tool is not on `PATH`
-— that is deliberate, not a failure. A button that says the login has expired
-means run that tool once, and the button will catch up within a few seconds.
+- **A provider has no button**: its tool is not on the `PATH` GNOME Shell started with,
+  or its switch is off. A tool installed into a directory your terminal adds to `PATH`
+  may not be on the session's.
+- **The button is amber with no figure**: the stored login has expired or is missing.
+  Run the tool once (`claude`, `agy` or `codex`), signing in if it asks; a new Claude or
+  Codex login is picked up within seconds, and any provider's on the next reading or when you open its pop-up.
+- **No button at all after installing**: log out and back in, then
+  `gnome-extensions enable ai-usage@jackicus`.
 
 ## Development
 
-`make help` lists every target. `make check` is everything verifiable without a
-GNOME Shell, and `CLAUDE.md` is the design: where the figures come from, what
-each file is for, and how to add a provider.
+`make link` installs a link to `src/`, `make reload` loads your edits, `make nested` runs
+the extension in a throwaway GNOME Shell, and `make check` is what CI runs. See
+[CONTRIBUTING.md](CONTRIBUTING.md), and [CLAUDE.md](CLAUDE.md) for the design: where the
+figures come from, what each file is for, and how to add a provider.
 
 ## Licence
 
-GPL-2.0-or-later.
+GPL-2.0-or-later. See [LICENSE](LICENSE).
+
+## Credits and trademarks
+
+The Claude, Antigravity and OpenAI names and marks are trademarks of Anthropic, Google
+and OpenAI. The marks appear on the buttons (OpenAI's on Codex's) only to say which
+service a figure belongs to; this extension is not affiliated with or endorsed by any of
+them. The Claude and OpenAI
+marks are drawn from [Simple Icons](https://simpleicons.org) (CC0-1.0), the Antigravity
+mark from [Boxicons](https://boxicons.com) (MIT).
+
+The plans, figures and paths in the screenshots are invented: they come from stand-in
+logins and answers in a throwaway shell (`./scripts/dev.sh shots`), not from anyone's
+account.
