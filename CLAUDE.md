@@ -145,6 +145,8 @@ to look at and what never to touch):
   `lib/http.js`, which answers with invented figures. No real path, login,
   account or network reaches a shot; a provider added without an answer there
   shows as unavailable. Plain `nested` still runs your install and logins.
+  It ends by stripping the PNGs' text chunks with `oxipng` (it warns when
+  `oxipng` is missing, and the shots must not be committed until stripped).
 
 Input is a RemoteDesktop session whose recording indicator stays in the top
 bar until the driver exits, so a click and its photo are separate driver runs,
