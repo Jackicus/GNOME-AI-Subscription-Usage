@@ -141,6 +141,7 @@ class UsageIndicator extends PanelMenu.Button {
         this._showPercent = true;
         this._pick = null;      // (reading) => Limit, set by whoever drives us
         this._resetFormat = ResetFormat.AUTO;
+        this._clock = null;     // '12h' or '24h', the desktop's; null reads as 24h
 
         // The pop-up's own title when there is no reading to head it -- see
         // _renderMenu(), where the actions still have to be reachable.
@@ -151,13 +152,14 @@ class UsageIndicator extends PanelMenu.Button {
         this.menu.addMenuItem(this._section);
     }
 
-    // `pick` chooses the limit the button itself shows, and `resetFormat` how
-    // a reset time is worded, so the settings that decide both live with the
-    // settings and not in here.
-    configure({showPercent, pick, resetFormat}) {
+    // `pick` chooses the limit the button itself shows, `resetFormat` how a
+    // reset time is worded and `clock` the 12/24-hour clock it is worded on, so
+    // the settings that decide all three live with the settings and not in here.
+    configure({showPercent, pick, resetFormat, clock}) {
         this._showPercent = showPercent;
         this._pick = pick;
         this._resetFormat = resetFormat ?? ResetFormat.AUTO;
+        this._clock = clock ?? null;
         this._render();
     }
 
@@ -249,7 +251,7 @@ class UsageIndicator extends PanelMenu.Button {
         }
 
         for (const limit of reading.limits)
-            this._section.addMenuItem(limitItem(limit, this._resetFormat));
+            this._section.addMenuItem(limitItem(limit, this._resetFormat, this._clock));
 
         if (reading.credits?.percent === null)
             this._section.addMenuItem(statusItem(reading.credits.label, reading.credits.detail));
@@ -260,7 +262,7 @@ class UsageIndicator extends PanelMenu.Button {
                 severity: reading.credits.severity ?? Severity.NORMAL,
                 resetsAt: null,
                 active: false,
-            }, this._resetFormat));
+            }, this._resetFormat, this._clock));
 
         // Silent unless it has something to report: one surviving row is 100%
         // by definition, and under a row that is a limit it would read as one.
@@ -405,7 +407,7 @@ function headerItem(name, plan, actions) {
 // from the stylesheet, and is aligned to the end of it. With that cell a fixed
 // size, the reset column's right edge is fixed too, and all three line up down
 // the pop-up.
-function limitItem(limit, resetFormat) {
+function limitItem(limit, resetFormat, clock) {
     const item = inertItem('ai-usage-limit');
     const column = new St.BoxLayout({
         orientation: Clutter.Orientation.VERTICAL,
@@ -429,7 +431,7 @@ function limitItem(limit, resetFormat) {
     name.clutter_text.ellipsize = Pango.EllipsizeMode.END;
     top.add_child(name);
 
-    const reset = formatReset(limit.resetsAt, {format: resetFormat});
+    const reset = formatReset(limit.resetsAt, {format: resetFormat, clock});
     if (reset) {
         const label = new St.Label({
             text: reset,
