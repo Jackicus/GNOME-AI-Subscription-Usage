@@ -22,7 +22,7 @@
 #                               and that every icon a provider asks for is there
 #   ./scripts/dev.sh imports    check that the preferences can still load what
 #                               they load: nothing in prefs.js's import graph
-#                               may reach St, Clutter or Soup
+#                               may reach St, Clutter, Meta, Shell, Soup or resource:// paths
 #   ./scripts/dev.sh parsers    run each provider's parser over a saved response
 #                               and check what comes out -- the only test that
 #                               needs no GNOME Shell, and the only check at all
@@ -243,7 +243,7 @@ cmd_assets() {
 }
 
 # The import-graph check: prefs.js runs without the shell, so nothing it reaches
-# may import St, Clutter or Soup.
+# may import St, Clutter, Meta, Shell, Soup or resource:// paths.
 cmd_imports() {
     require gjs
     gjs -m "$REPO_DIR/scripts/imports.js"
