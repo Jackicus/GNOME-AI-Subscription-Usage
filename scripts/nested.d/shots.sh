@@ -39,11 +39,6 @@ SHOTS_TAB_BUTTONS="677 201"
 SHOTS_TAB_READINGS="799 201"
 SHOTS_TAB_PROVIDERS="922 201"
 
-# What 'start' copies in from your own session's look. The pictures are of the
-# stock look, whoever takes them, so each goes back to its default here.
-SHOTS_LOOK_KEYS=(color-scheme accent-color gtk-theme icon-theme cursor-theme font-name
-                 document-font-name monospace-font-name text-scaling-factor)
-
 cmd_shots() {
     local light=0 out="$REPO_DIR/docs/screenshots" status=0
     while (( $# )); do
@@ -77,12 +72,9 @@ shots_do() {
 }
 
 shots_take() {
-    local light="$1" out="$2" suffix="" key
+    local light="$1" out="$2" suffix=""
     (( light )) && suffix="-light"
 
-    for key in "${SHOTS_LOOK_KEYS[@]}"; do
-        cmd_run timeout 5 gsettings reset org.gnome.desktop.interface "$key" || return 1
-    done
     # Nothing in the pop-up hardcodes a foreground colour, which is only worth
     # anything if it has been looked at both ways round; the pictures are named
     # apart so a run in one scheme does not overwrite the other's.

@@ -139,14 +139,14 @@ extension's own:
   scratch `HOME` with stand-in logins, and the staged copy's `lib/http.js`
   replaced by `./scripts/stand-in-http.js`, which answers with invented figures.
   No real path, login, account or network reaches it; a provider added without
-  an answer there shows as unavailable. `reload` re-stages it all.
+  an answer there shows as unavailable. `reload` re-stages `src/` with
+  `stand-in-http.js` (`nested_stand_in_stage`); the logins are made once per start.
 * **`./scripts/nested.sh shots [--light] [--out DIR]`** (`make shots`) takes the
   published set into `docs/screenshots/` over `start --stand-in --headless`,
   then stops (`--light`: top bar and pop-up only, `*-light.png`; `--out`: the
   scratchpad, to compare before committing). It refuses while a nested shell
-  runs. It puts the copied look (`SHOTS_LOOK_KEYS`) back to GNOME's defaults,
-  so a shot does not carry your fonts or icon theme, and ends by stripping the
-  PNGs' text chunks with `oxipng` (it warns when `oxipng` is missing; never
+  runs. `--stand-in` starts in GNOME's stock look, so a shot carries none of
+  your fonts or icon theme. It ends by stripping the PNGs' text chunks with `oxipng` (it warns when `oxipng` is missing; never
   commit them unstripped).
 
 Input is a RemoteDesktop session whose recording indicator stays in the top
