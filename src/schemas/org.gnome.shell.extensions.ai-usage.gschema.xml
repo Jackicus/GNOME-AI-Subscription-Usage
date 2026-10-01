@@ -69,11 +69,6 @@
             <summary>Seconds between readings</summary>
             <description>How often to ask the provider for the figures. Opening the pop-up always reads them again, and so does the stored login changing, so a long interval here still gives you fresh numbers when you look.</description>
         </key>
-        <key name="poll-when-idle" type="b">
-            <default>false</default>
-            <summary>Keep reading while the screen is locked or idle</summary>
-            <description>Off by default: a locked screen has nobody looking at the button, so the readings are skipped until it is unlocked.</description>
-        </key>
 
         <!-- Colour and warnings -->
         <key name="warn-percent" type="i">

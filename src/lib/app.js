@@ -123,7 +123,6 @@ export class AiUsageApp {
         };
         this._notifyAt = s.get_int('notify-percent');
         this._pollSeconds = s.get_int('poll-seconds');
-        this._pollWhenIdle = s.get_boolean('poll-when-idle');
 
         const limitMode = s.get_string('primary-limit');
         this._button = buttonOptions(s);
@@ -195,7 +194,7 @@ export class AiUsageApp {
         const relayout = ['panel-box', 'panel-index'];
         const reread = ['warn-percent', 'critical-percent'];
 
-        for (const key of [...relayout, ...reread, 'primary-limit', 'show-icon', 'show-percent', 'icon-size', 'reset-format', 'poll-seconds', 'poll-when-idle', 'notify-percent']) {
+        for (const key of [...relayout, ...reread, 'primary-limit', 'show-icon', 'show-percent', 'icon-size', 'reset-format', 'poll-seconds', 'notify-percent']) {
             this._settingsIds.push(this._settings.connect(`changed::${key}`, () => {
                 this._applySettings();
                 if (relayout.includes(key))
@@ -426,7 +425,7 @@ export class AiUsageApp {
     _schedule() {
         this._unschedule();
         this._timerId = GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, this._pollSeconds, () => {
-            if (this._pollWhenIdle || !this._userIsIdle())
+            if (!this._userIsIdle())
                 this.refresh();
             else
                 Log.debug('Skipping a poll: the session is idle.');

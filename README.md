@@ -108,9 +108,8 @@ each button carries, whether the percentage is shown beside the icon, and the
 start of the pop-up section, which is where reset times are
 worded.](docs/screenshots/preferences-buttons.png)
 
-![The Readings page: seconds between readings, whether to keep reading while
-idle, and the figure at which a limit notifies
-you.](docs/screenshots/preferences-readings.png)
+![The Readings page: seconds between readings, and the figure at which a limit
+notifies you.](docs/screenshots/preferences-readings.png)
 
 </details>
 
