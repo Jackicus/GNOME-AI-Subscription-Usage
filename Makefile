@@ -5,7 +5,7 @@ DEV := ./scripts/dev.sh
 
 all: install
 
-link install reload logs pack providers parsers imports nested shots uninstall status clean:
+link install reload logs pack providers parsers imports assets nested shots uninstall status clean:
 	@$(DEV) $@
 
 # Everything that can be checked without a GNOME Shell.

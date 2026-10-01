@@ -95,13 +95,22 @@ cmd_install() {
     mkdir -p "$EXT_DIR"
     cp -r "$SRC_DIR"/. "$EXT_DIR"/
     ok "Installed to $EXT_DIR"
-    enable_extension
+    enable_extension copy
 }
 
+# With "copy" (an install, not a link), an extension that is already enabled is
+# left alone: the shell only imports extension.js from the INITIALIZED state, so
+# a disable/enable would run the new CSS over the old JS. Only a link, whose
+# entry point re-imports lib/ itself, genuinely reloads.
 enable_extension() {
     require gnome-extensions
     if is_enabled; then
-        cmd_reload
+        if [[ "${1:-}" == copy ]]; then
+            warn "$UUID is already enabled, and the running shell keeps the JS it first loaded."
+            warn "The new files are in place; log out and back in (Wayland) or Alt+F2 'r' (X11) to run them."
+        else
+            cmd_reload
+        fi
     else
         info "Enabling $UUID..."
         if gnome-extensions enable "$UUID" 2>/dev/null; then
@@ -271,14 +280,7 @@ cmd_status() {
         state="$(gnome-extensions info "$UUID" 2>/dev/null | sed -n 's/^ *State: *//p' || true)"
         echo "state:    ${state:-unknown to the running shell (log out and back in)}"
     fi
-    local cli
-    for cli in claude; do
-        if command -v "$cli" >/dev/null 2>&1; then
-            echo "$cli:   $(command -v "$cli") (run './scripts/dev.sh providers' for its figures)"
-        else
-            echo "$cli:   not installed -- that provider is left out"
-        fi
-    done
+    echo "providers: run 'make providers' for which CLIs are found and their figures"
 }
 
 usage() {
