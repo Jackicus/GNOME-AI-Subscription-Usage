@@ -53,9 +53,11 @@ src/lib/providers/codex.js        Codex -- written from openai/codex, NEVER RUN
 tests/fixtures/         one saved response per provider, for `make parsers`
 ```
 
-`make pack` also refuses a zip holding any file it did not expect (`check_pack`
-in `./scripts/dev.sh`). `./scripts/dev-extension.js`, the `make link` entry
-point, also turns the debug log on.
+What ships is `./scripts/ext.conf`'s `EXT_SHIP` (`lib/` with `lib/providers/`,
+and `icons/`); `make pack` refuses a zip holding anything else. The kit's
+`./scripts/dev-extension.js`, the `make link` entry point, also turns the debug
+log on (`lib/log.js`'s `setVerbose`) and names its stage after a checksum of
+`lib/`'s files.
 
 ## How it behaves
 
@@ -108,8 +110,9 @@ so any display change is one redraw and no request. Only `enabled` re-reads.
 
 ## Verifying
 
-* `make check` — all that needs no shell, and what CI runs: ESLint, plus
-  * `schemas`: `glib-compile-schemas --strict --dry-run src/schemas`.
+* `make check` — all that needs no shell, and what CI runs: ESLint, the shared
+  `schema` check (`--strict`), then `EXT_CHECKS`, each a `./scripts/dev.d/`
+  command:
   * `parsers`: each provider's parser over `tests/fixtures/`, including that
     unknown shapes degrade rather than throw. For Codex this is all there is.
   * `imports`: walks everything `prefs.js` reaches, fails on St, Clutter, Meta,
@@ -122,36 +125,35 @@ so any display change is one redraw and no request. Only `enabled` re-reads.
   each button would show. Tells a data problem from a drawing problem. It reads
   the real stored logins and goes to the network: ask first.
 
-### The throwaway shell
+### The nested shell
 
-This repository has no `./scripts/nested.sh start/stop`; it has these, which
-take the place of the kit's loop (`gnome-ext:nested-shell` still holds for what
-to look at and what never to touch):
+The kit's `./scripts/nested.sh` (`gnome-ext:nested-shell`). What is this
+extension's own:
 
-* `./scripts/dev.sh nested` — a throwaway GNOME Shell with only this extension
-  enabled. Headless, or `--window`/`--keep`. Own D-Bus, keyfile GSettings under
-  a scratch `XDG_CONFIG_HOME` (`$XDG_RUNTIME_DIR/ai-usage-nested/`), so the live
-  dconf is never opened: there is no `--clean` because there is nothing to
-  isolate. It lives only as long as the command (`--keep`, `--window`: until
-  Ctrl+C), so there is no `stop` and no SessionEnd hook. Runs what `make
-  link`/`install` put in place. A setting is tried by appending it to the
-  keyfile (`nested.sh`'s header says how).
-* `./scripts/dev.sh shots [--light]` — the same shell, driven and photographed
-  into `docs/screenshots/` (`--light`: top bar and pop-up only, `*-light.png`).
-  It photographs a stand-in world, since the pictures are public: inside its
-  own user and mount namespace, stand-in `claude` and `agy` overlaid on
-  `/usr/bin` with `PATH` system-only, a scratch `HOME` with stand-in logins, and
-  this checkout's `src/` staged there with `./scripts/stand-in-http.js` over
-  `lib/http.js`, which answers with invented figures. No real path, login,
-  account or network reaches a shot; a provider added without an answer there
-  shows as unavailable. Plain `nested` still runs your install and logins.
-  It ends by stripping the PNGs' text chunks with `oxipng` (it warns when
-  `oxipng` is missing, and the shots must not be committed until stripped).
+* **A plain `start` runs your install, your CLIs and your logins**, so its
+  providers read the real stored logins and go to the network. To try something
+  without that, `start --stand-in`; to see a plain start come up with no
+  provider live, start it with `PATH=/usr/local/bin:/usr/bin` (no CLI there).
+* **`start --stand-in`** is a stand-in world (`./scripts/nested.d/stand-in.sh`):
+  stand-in `claude` and `agy` overlaid on `/usr/bin` (`EXT_STAND_IN_BINS`), a
+  scratch `HOME` with stand-in logins, and the staged copy's `lib/http.js`
+  replaced by `./scripts/stand-in-http.js`, which answers with invented figures.
+  No real path, login, account or network reaches it; a provider added without
+  an answer there shows as unavailable. `reload` re-stages it all.
+* **`./scripts/nested.sh shots [--light] [--out DIR]`** (`make shots`) takes the
+  published set into `docs/screenshots/` over `start --stand-in --headless`,
+  then stops (`--light`: top bar and pop-up only, `*-light.png`; `--out`: the
+  scratchpad, to compare before committing). It refuses while a nested shell
+  runs. It puts the copied look (`SHOTS_LOOK_KEYS`) back to GNOME's defaults,
+  so a shot does not carry your fonts or icon theme, and ends by stripping the
+  PNGs' text chunks with `oxipng` (it warns when `oxipng` is missing; never
+  commit them unstripped).
 
 Input is a RemoteDesktop session whose recording indicator stays in the top
-bar until the driver exits, so a click and its photo are separate driver runs,
-and the click coordinates in `nested.sh` (`CLAUDE_BUTTON`, `TAB_*`) are
-measured with the indicator present. Antigravity's keyring lookup times out on
-the throwaway bus after about 25 s (`SETTLE_SECONDS`); under `shots` it then
-falls back to the stand-in token file, and under plain `nested` its button
-shows amber with no figure.
+bar until the driver exits, so a click and its photo are separate `do` calls,
+and the click coordinates in `./scripts/nested.d/shots.sh`
+(`SHOTS_CLAUDE_BUTTON`, `SHOTS_TAB_*`) are measured with the indicator present.
+Antigravity's keyring lookup times out on the nested bus after about 25 s
+(`SHOTS_SETTLE`, and an expected "keyring lookup failed" log line); under
+`--stand-in` it then falls back to the stand-in token file, and under a plain
+start its button shows amber with no figure.
