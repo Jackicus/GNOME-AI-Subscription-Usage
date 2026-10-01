@@ -40,15 +40,8 @@ export default class AiUsagePreferences extends ExtensionPreferences {
             ['session', 'Current session'],
             ['weekly', 'This week'],
         ]));
-        const icon = switchRow(settings, 'show-icon', 'Show the icon',
-            "The provider's own icon, which is what says whose percentage this is.");
-        const percent = switchRow(settings, 'show-percent', 'Show the percentage',
-            'With this off a button is its icon alone, tinted by how much has been used.');
-        shown.add(icon);
-        shown.add(percent);
-        shown.add(spinRow(settings, 'icon-size', 'Icon size',
-            "In pixels. The shell's own panel icons are 16.", 12, 24));
-        keepOneOf(settings, 'show-icon', 'show-percent', icon);
+        shown.add(switchRow(settings, 'show-percent', 'Show the percentage',
+            'With this off a button is its icon alone, tinted by how much has been used.'));
         page.add(shown);
 
         const popup = new Adw.PreferencesGroup({
@@ -175,28 +168,6 @@ export default class AiUsagePreferences extends ExtensionPreferences {
 
         return row;
     }
-}
-
-// A button with neither its icon nor its percentage is zero pixels wide: still
-// there, still clickable in principle, and completely invisible, which reads as
-// the extension being broken. The shell refuses the pair outright -- see
-// buttonOptions() -- and this is that same rule made visible: turning the second
-// switch off turns the *other* one back on, in front of the user, so the switch
-// they just touched stays where they put it and the preferences never quietly
-// disagree with it.
-//
-// The handlers outlive neither the window nor each other: both are dropped when
-// the row they were added beside goes.
-function keepOneOf(settings, a, b, row) {
-    const rescue = (touched, other) => () => {
-        if (!settings.get_boolean(touched) && !settings.get_boolean(other))
-            settings.set_boolean(other, true);
-    };
-    const ids = [
-        settings.connect(`changed::${a}`, rescue(a, b)),
-        settings.connect(`changed::${b}`, rescue(b, a)),
-    ];
-    row.connect('destroy', () => ids.forEach(id => settings.disconnect(id)));
 }
 
 // ---- rows -------------------------------------------------------------------

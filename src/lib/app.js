@@ -21,7 +21,7 @@ import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import {Http} from './http.js';
 import {UsageIndicator} from './indicator.js';
 import {allProviders} from './providers/registry.js';
-import {applyOptions, buttonOptions, displayOptions, providerSettings} from './settings.js';
+import {applyOptions, displayOptions, providerSettings} from './settings.js';
 import {ResetFormat, Status, formatReset} from './usage.js';
 import * as Log from './log.js';
 
@@ -125,13 +125,13 @@ export class AiUsageApp {
         this._pollSeconds = s.get_int('poll-seconds');
 
         const limitMode = s.get_string('primary-limit');
-        this._button = buttonOptions(s);
+        this._showPercent = s.get_boolean('show-percent');
         this._pick = reading => pickLimit(reading, limitMode);
         this._resetFormat = s.get_string('reset-format');
 
         this._buildEntries();
         for (const {indicator} of this._buttons.values()) {
-            indicator.configure({...this._button, pick: this._pick, resetFormat: this._resetFormat});
+            indicator.configure({showPercent: this._showPercent, pick: this._pick, resetFormat: this._resetFormat});
             // configure() redraws, which blanks the label of a button that has
             // nothing to draw yet. setBusy() puts the ellipsis back, and does
             // nothing at all once figures have arrived.
@@ -194,7 +194,7 @@ export class AiUsageApp {
         const relayout = ['panel-box', 'panel-index'];
         const reread = ['warn-percent', 'critical-percent'];
 
-        for (const key of [...relayout, ...reread, 'primary-limit', 'show-icon', 'show-percent', 'icon-size', 'reset-format', 'poll-seconds', 'notify-percent']) {
+        for (const key of [...relayout, ...reread, 'primary-limit', 'show-percent', 'reset-format', 'poll-seconds', 'notify-percent']) {
             this._settingsIds.push(this._settings.connect(`changed::${key}`, () => {
                 this._applySettings();
                 if (relayout.includes(key))
@@ -276,7 +276,7 @@ export class AiUsageApp {
                 this.refresh();
         });
 
-        indicator.configure({...this._button, pick: this._pick, resetFormat: this._resetFormat});
+        indicator.configure({showPercent: this._showPercent, pick: this._pick, resetFormat: this._resetFormat});
         // Figures for a button built mid-session are a poll away, and a blank
         // button in the meantime looks broken.
         indicator.setBusy();
