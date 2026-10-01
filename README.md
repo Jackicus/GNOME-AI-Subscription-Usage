@@ -3,9 +3,10 @@
 A GNOME Shell extension that shows how much of your AI subscription you have
 used, as a button in the top bar.
 
-![The pop-up for Claude on a Max (20x) plan: the 5-hour limit at 13%, the week
-across all models at 28%, and the week for Fable at 33%, each with a bar and the
-time it resets, under a header carrying the plan and, at its right end, a
+![The pop-up for Claude on a Max (20x) plan: the 5-hour limit at 10%, the week
+across all models at 30%, and the week for Fable at 33%, each with a bar and the
+time it resets; then "Extra usage · off" with 0.00 USD used, and a line saying
+where the week went. The header carries the plan and, at its right end, a
 refresh and an arrow to the preferences.](docs/screenshots/pop-up.png)
 
 It lists the limits your provider actually enforces — the current session, the
@@ -16,12 +17,13 @@ bar says and what the terminal says are the same numbers.
 
 There is a button per subscription, carrying that subscription's current
 session — the window you are working in now — and tinted amber and then red as
-it climbs. The preferences will make it the highest of the limits instead.
+it climbs. The preferences can make it the week, or whichever limit is
+highest, instead.
 
-![Two buttons at the right of the top bar: the Claude mark reading 13%, and the
+![Two buttons at the right of the top bar: the Claude mark reading 10%, and the
 Antigravity mark in amber.](docs/screenshots/top-bar-cropped.png)
 
-Claude at 13%, and beside it Antigravity in amber — which is not a reading. That
+Claude at 10%, and beside it Antigravity in amber — which is not a reading. That
 is the warning tint: these were photographed in a throwaway session with no
 keyring, so Antigravity's stored login could not be read, and the button says so
 rather than showing a number.
@@ -95,21 +97,20 @@ make uninstall
 Each provider is switched on or off separately, along with what it shows — and a
 provider is only offered the switches it can actually honour.
 
-![The Providers page of the preferences, listing Claude found at
-/usr/bin/claude, Codex with "the Codex CLI is not installed — this provider is
+![The Providers page of the preferences, listing Claude Code found at
+/home/hp/.local/bin/claude, Codex with "the Codex CLI is not installed — this provider is
 left out", and Antigravity found at
 /home/hp/.local/bin/agy.](docs/screenshots/preferences-providers.png)
 
 <details>
 <summary>The other two pages</summary>
 
-![The Buttons page: one button per provider or a single shared one, which figure
-each button carries, whether the percentage is shown beside the icon, and the
-start of the pop-up section, which is where reset times are
-worded.](docs/screenshots/preferences-buttons.png)
+![The Buttons page: which figure each button carries, whether the percentage is
+shown beside the icon, how reset times are worded, and the start of where the
+buttons sit in the top bar.](docs/screenshots/preferences-buttons.png)
 
 ![The Readings page: seconds between readings, and the figure at which a limit
-notifies you.](docs/screenshots/preferences-readings.png)
+notifies you (zero for never).](docs/screenshots/preferences-readings.png)
 
 </details>
 
