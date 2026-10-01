@@ -12,11 +12,14 @@
 #
 # A provider added without an answer in stand-in-http.js shows as unavailable.
 
-# nested_stand_in HOME STAGE
-nested_stand_in() {
-    local home="$1" stage="$2"
-    cp "$REPO_DIR/scripts/stand-in-http.js" "$stage/lib/http.js"
+# nested_stand_in_stage STAGE: every time the extension is staged, reload included.
+nested_stand_in_stage() {
+    cp "$REPO_DIR/scripts/stand-in-http.js" "$1/lib/http.js"
+}
 
+# nested_stand_in HOME STAGE: once per start.
+nested_stand_in() {
+    local home="$1"
     mkdir -p "$home/.claude" "$home/.gemini/antigravity-cli"
     cat > "$home/.claude/.credentials.json" <<'EOF'
 {"claudeAiOauth": {"accessToken": "stand-in", "subscriptionType": "max", "rateLimitTier": "default_claude_max_5x"}}
