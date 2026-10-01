@@ -24,6 +24,3 @@ paths:
   shell keeps. No foreground colour is hardcoded.
 * Paddings are px measured from the shell's own theme (`.popup-menu-item`,
   `.quick-settings`, `#panel .panel-button`), each with its reason beside it.
-* `PanelMenu.Button` defines `_init`, so `UsageIndicator` uses `_init`.
-  `UsageBar` extends `St.BoxLayout`, which does not, so it uses
-  `constructor`/`super`.

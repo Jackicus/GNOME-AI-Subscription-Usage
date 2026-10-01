@@ -65,10 +65,8 @@ point, also turns the debug log on.
   `${uuid}-${providerId}`; placed in `panel-box` from `panel-index`, in registry
   order. The icon (`icons/<provider.icon>.svg`, else `ai-usage-symbolic.svg`) is
   always drawn at 16px; `show-percent` only hides the figure.
-* `addToStatusArea` claims a role for the life of the indicator, so it cannot
-  move one: a move in `_placeButtons()` is a reparent into the panel's box.
-  Destroying the indicator releases the role, which is why a provider can be
-  toggled without a restart.
+* A move in `_placeButtons()` is a reparent into the panel's box, and a provider
+  toggles without a restart because destroying its indicator releases the role.
 * **Reading is lazy.** A timer (`poll-seconds`) is the fallback, skipped when
   the session has been idle for 10 minutes. The real triggers are the stored
   login changing on disk (file monitor, 2 s debounce) and opening a pop-up —
