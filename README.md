@@ -27,9 +27,8 @@ keyring, so Antigravity's stored login could not be read, and the button says so
 rather than showing a number.
 
 The pictures on this page are of GNOME Shell 50 in the dark theme, taken in the
-throwaway session `./scripts/dev.sh shots` drives. That is as far as the drawing
-has been checked: it has not been through a light theme, a narrow menu, or a
-second machine.
+throwaway session `./scripts/dev.sh shots` drives. Light-theme versions of the
+top bar and the pop-up are beside them in `docs/screenshots/`.
 
 ## You never sign in here
 
@@ -51,6 +50,14 @@ itself.
 Where a tool keeps its login in the system keyring rather than a file — as the
 Antigravity CLI does — the extension reads it from there.
 
+## Requirements
+
+* GNOME Shell 50.
+* The command-line tool of each provider you want, already signed in (see
+  above).
+* To install from a clone: `make`, `glib-compile-schemas` and
+  `gnome-extensions`.
+
 ## Installing
 
 Not on extensions.gnome.org yet.
@@ -66,6 +73,21 @@ first time you have to **log out and back in**, then:
 
 ```sh
 gnome-extensions enable ai-usage@jackicus
+```
+
+## Updating
+
+```sh
+git pull && make install
+```
+
+Then log out and back in: the shell does not re-import the JavaScript of an
+extension that is already running.
+
+## Uninstalling
+
+```sh
+make uninstall
 ```
 
 ## The preferences
