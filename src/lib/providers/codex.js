@@ -199,13 +199,16 @@ function resetTime(window) {
 }
 
 // Only when the account actually has credits: a "0 left" row on an account
-// that never had any is noise, and it draws an empty bar under it.
+// that never had any is noise. A balance is an amount, not a share of anything,
+// so there is no figure to draw a bar from: `percent: null` is what tells the
+// renderer to show a status line without one, as Claude's "Extra usage · off"
+// does.
 function creditsFrom(body) {
     const credits = body?.credits;
     if (!credits || credits.has_credits === false)
         return null;
     if (credits.unlimited === true)
-        return {percent: 0, label: 'Credits · unlimited'};
+        return {percent: null, label: 'Credits · unlimited'};
 
     // The balance comes through as a string in the upstream types.
     const balance = credits.balance;
@@ -214,7 +217,7 @@ function creditsFrom(body) {
     const amount = Number(balance);
     if (!Number.isFinite(amount) || amount <= 0)
         return null;
-    return {percent: 0, label: `Credits · ${amount} left`};
+    return {percent: null, label: `Credits · ${amount} left`};
 }
 
 function planLabel(planType) {
