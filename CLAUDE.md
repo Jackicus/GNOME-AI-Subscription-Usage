@@ -240,18 +240,12 @@ Each button's icon is `provider.icon` resolved to `icons/<name>.svg`, falling
 back to `icons/ai-usage-symbolic.svg` when the property is absent or the file is
 not there — so a provider with no icon of its own still gets a button.
 
-What a button is made of is three more global keys: `show-icon`, `show-percent`
-and `icon-size` (12–24, default 16, which is what the shell's own panel icons
-are). **The two switches cannot both be off.** A button with neither is a
-zero-width actor — still there, still clickable in principle, and completely
-invisible, which is exactly what the Antigravity button looked like before the
-icons were fixed (#23) and reads as the extension being broken. So
-`buttonOptions()` in `settings.js` brings the icon back when the figure has gone
-as well, `indicator.js` applies the same rule at the point of drawing (where
-"there is no figure" is also true of a button that has not been answered yet, or
-whose provider could not be read), and the preferences turn the *other* switch
-back on in front of the user — so the switch they just touched stays where they
-put it and nothing quietly disagrees with it.
+What a button is made of is one more global key, `show-percent`: the icon is
+always there, at the shell's own 16px (`ICON_SIZE` in `indicator.js`), because in
+`per-provider` mode it is the thing that says whose figure this is. With the
+figure off a button is its icon alone, tinted by how much has been used — which
+is why there is no switch for the icon, and so no way to end up with a button of
+no width and nothing to see.
 
 ### The pop-up
 

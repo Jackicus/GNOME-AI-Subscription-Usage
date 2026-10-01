@@ -19,9 +19,8 @@ import {ResetFormat, Severity, Status, formatBreakdown, formatPercent, formatRes
 // stays legible whether the menu is light or dark.
 const DIM_OPACITY = 160;
 
-// What the shell's own panel icons are, and so what the icon is drawn at until
-// something says otherwise.
-const DEFAULT_ICON_SIZE = 16;
+// What the shell's own panel icons are, and so what the icon is drawn at.
+const ICON_SIZE = 16;
 
 // `.ai-usage-bar`'s height in the stylesheet, where it is the shell's own
 // `-barlevel-height`. Repeated here because _resize() has to know it: with both
@@ -127,6 +126,7 @@ class UsageIndicator extends PanelMenu.Button {
         this._box = new St.BoxLayout({style_class: 'ai-usage-panel-box'});
         this._icon = new St.Icon({
             gicon: new Gio.FileIcon({file: iconFile}),
+            icon_size: ICON_SIZE,
             style_class: 'system-status-icon',
         });
         this._label = new St.Label({
@@ -138,7 +138,6 @@ class UsageIndicator extends PanelMenu.Button {
         this.add_child(this._box);
 
         this._reading = null;
-        this._showIcon = true;
         this._showPercent = true;
         this._pick = null;      // (reading) => Limit, set by whoever drives us
         this._resetFormat = ResetFormat.AUTO;
@@ -154,13 +153,9 @@ class UsageIndicator extends PanelMenu.Button {
 
     // `pick` chooses the limit the button itself shows, and `resetFormat` how
     // a reset time is worded, so the settings that decide both live with the
-    // settings and not in here. `showIcon`, `showPercent` and `iconSize` are
-    // what the button is made of; the rule that stops the last of them being
-    // turned off is applied before they get here, in settings.js.
-    configure({showIcon = true, showPercent, iconSize, pick, resetFormat}) {
-        this._showIcon = showIcon;
+    // settings and not in here.
+    configure({showPercent, pick, resetFormat}) {
         this._showPercent = showPercent;
-        this._icon.icon_size = iconSize > 0 ? iconSize : DEFAULT_ICON_SIZE;
         this._pick = pick;
         this._resetFormat = resetFormat ?? ResetFormat.AUTO;
         this._render();
@@ -206,17 +201,10 @@ class UsageIndicator extends PanelMenu.Button {
         this._setPanelSeverity(shown.severity);
     }
 
-    // The one arrangement a button must never end up in is empty: an actor with
-    // no icon and no figure is zero width, still there and still clickable in
-    // principle, and completely invisible -- which reads as the extension being
-    // broken rather than as anything anyone asked for. settings.js refuses that
-    // pair of switches; this is the same rule where the drawing happens, which
-    // is the only place that also knows the other way to have no figure -- that
-    // none has arrived yet, or that nothing readable came back at all. So the
-    // icon comes back whenever the figure is absent, whatever its switch says.
+    // The icon is always there, so the button is never empty; only the figure
+    // comes and goes.
     _showFigure(hasFigure) {
         this._label.visible = hasFigure && this._showPercent;
-        this._icon.visible = this._showIcon || !this._label.visible;
     }
 
     _setPanelSeverity(severity) {

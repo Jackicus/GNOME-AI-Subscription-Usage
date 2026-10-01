@@ -51,28 +51,6 @@ export function displayOptions(settings) {
     };
 }
 
-// What a button itself is made of: whether it carries the icon, whether it
-// carries the figure, and how big the icon is drawn. Gathered here for the same
-// reason as displayOptions -- one place decides, and the renderer reads no
-// settings at all.
-//
-// Both switches off is the one combination that must never reach the top bar.
-// An actor with no icon and no figure is zero width: still there, still
-// clickable in principle, and completely invisible -- which reads as the
-// extension being broken rather than as anything anyone chose. So the icon
-// comes back when the figure has been turned off as well, because the icon is
-// what names the subscription the button belongs to. The preferences apply the
-// same rule on the key the user did not touch, so what they see is the other
-// switch coming back rather than this one quietly disagreeing with them.
-export function buttonOptions(settings) {
-    const showPercent = settings.get_boolean('show-percent');
-    return {
-        showIcon: settings.get_boolean('show-icon') || !showPercent,
-        showPercent,
-        iconSize: settings.get_int('icon-size'),
-    };
-}
-
 // The switches worth showing for a provider: the ones its capabilities say it
 // can honour. Keeping this beside the schema means the preferences never offer
 // a switch that would do nothing.

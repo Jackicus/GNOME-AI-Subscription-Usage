@@ -25,21 +25,10 @@
             <summary>Which limit a button shows</summary>
             <description>A pop-up always lists every limit; this is the one figure on the button itself. "session" is the default: the current session -- Claude's 5-hour window -- is the limit that decides whether you can keep working right now, which is what a glance at the top bar is asking. A provider with no session limit falls back to its highest. "highest": whichever limit is closest to being used up, wherever it comes from. "weekly": the week's own limit, ignoring the per-model ones.</description>
         </key>
-        <key name="show-icon" type="b">
-            <default>true</default>
-            <summary>Show the provider's icon on its button</summary>
-            <description>With this off a button is the percentage alone. It cannot be off at the same time as "show-percent": a button with neither is zero pixels wide and invisible, so turning the second of the two off turns the first back on.</description>
-        </key>
         <key name="show-percent" type="b">
             <default>true</default>
             <summary>Show the percentage beside the icon</summary>
-            <description>With this off a button is its icon alone, tinted by how much has been used, and the figures are in the pop-up. It cannot be off at the same time as "show-icon".</description>
-        </key>
-        <key name="icon-size" type="i">
-            <default>16</default>
-            <range min="12" max="24"/>
-            <summary>How big the icon on a button is drawn, in pixels</summary>
-            <description>The shell's own panel icons are 16, which is why that is the default: anything else is a deliberate departure from the rest of the top bar.</description>
+            <description>With this off a button is its icon alone, tinted by how much has been used, and the figures are in the pop-up.</description>
         </key>
 
         <!-- What the pop-up says -->
