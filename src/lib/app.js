@@ -40,6 +40,15 @@ const FALLBACK_ICON = 'ai-usage-symbolic.svg';
 // looking at the top bar, and opening the pop-up reads afresh anyway.
 const IDLE_SKIP_MS = 10 * 60 * 1000;
 
+// Opening a pop-up whose figures are younger than this shows them as they are
+// rather than reading again. In microseconds, which is what a GLib.DateTime
+// difference comes in.
+const FRESH_FOR_US = 60 * GLib.TIME_SPAN_SECOND;
+
+// The global keys that change only how the figures are drawn. Any of them is
+// one redraw of what is already in hand, and nothing else.
+const DISPLAY_KEYS = ['warn-percent', 'critical-percent', 'primary-limit', 'show-percent', 'reset-format', 'notify-percent'];
+
 export class AiUsageApp {
     constructor(extension) {
         this._extension = extension;
@@ -47,17 +56,13 @@ export class AiUsageApp {
 
         this._http = null;
         this._buttons = new Map();   // provider id -> {indicator}
-        this._entries = [];     // {provider, settings, options} per live provider
+        this._entries = [];     // {provider, settings} per live provider
         this._raw = [];         // what the providers returned, untouched
 
         // How every button draws its figure. Held here rather than read at the
         // point of use, so that a button built later -- a provider switched on
         // mid-session -- starts out configured like the rest.
-        //
-        // What each button is made of -- the icon, the figure, the icon's size
-        // -- with the rule that stops both of the first two being off already
-        // applied to it.
-        this._button = {showIcon: true, showPercent: true, iconSize: 16};
+        this._showPercent = true;
         this._pick = reading => reading.worst;
         // How a reset time is worded, in the pop-ups and in the notifications
         // alike -- they are the same sentence, so they go through the same
@@ -82,10 +87,11 @@ export class AiUsageApp {
         this._http = new Http(`gnome-shell-extension-ai-usage/${this._extension.metadata['version-name'] ?? 'dev'}`);
 
         this._watchClock();
+        this._readDisplay();
 
-        // _applySettings() builds the live provider list, and with it the
-        // buttons, so there is none to place here.
-        this._applySettings();
+        // Builds the live provider list, and with it the buttons, so there is
+        // none to place here.
+        this._buildEntries();
         this._watchSettings();
 
         this.refresh();
@@ -117,6 +123,9 @@ export class AiUsageApp {
         this._entries = [];
 
         this._stopWatchingCredentials();
+        if (this._debounceId)
+            GLib.Source.remove(this._debounceId);
+        this._debounceId = 0;
 
         // Every button goes, and the handler on each one's menu with it, for
         // the same reason: enable() builds the whole arrangement again.
@@ -131,30 +140,34 @@ export class AiUsageApp {
 
     // ---- settings -----------------------------------------------------------
 
-    _applySettings() {
+    // Everything that decides how the figures are drawn, as opposed to which
+    // providers there are or when they are read.
+    _readDisplay() {
         const s = this._settings;
         this._thresholds = {
             warn: s.get_int('warn-percent'),
             critical: s.get_int('critical-percent'),
         };
         this._notifyAt = s.get_int('notify-percent');
-        this._pollSeconds = s.get_int('poll-seconds');
 
         const limitMode = s.get_string('primary-limit');
         this._showPercent = s.get_boolean('show-percent');
         this._pick = reading => pickLimit(reading, limitMode);
         this._resetFormat = s.get_string('reset-format');
+        this._clock = this._interface?.get_string('clock-format') === '12h' ? '12h' : '24h';
+    }
 
-        this._buildEntries();
-        for (const {indicator} of this._buttons.values()) {
-            indicator.configure({showPercent: this._showPercent, pick: this._pick, resetFormat: this._resetFormat, clock: this._clock});
-            // configure() redraws, which blanks the label of a button that has
-            // nothing to draw yet. setBusy() puts the ellipsis back, and does
-            // nothing at all once figures have arrived.
-            indicator.setBusy();
-        }
+    _buttonOptions() {
+        return {showPercent: this._showPercent, pick: this._pick, resetFormat: this._resetFormat, clock: this._clock};
+    }
 
-        this._watchCredentials();
+    // configure() only stores, so this is one render per button however many
+    // keys changed -- and no provider is detected again, no monitor touched.
+    _displayChanged() {
+        this._readDisplay();
+        for (const {indicator} of this._buttons.values())
+            indicator.configure(this._buttonOptions());
+        this._redraw();
     }
 
     // A provider is live when it is switched on *and* its command-line tool is
@@ -170,11 +183,7 @@ export class AiUsageApp {
                 Log.debug(`'${provider.cli}' is not installed; leaving ${provider.id} out.`);
                 continue;
             }
-            this._entries.push({
-                provider,
-                settings,
-                options: displayOptions(settings),
-            });
+            this._entries.push({provider, settings});
         }
         this._syncButtons();
         this._watchCredentials();
@@ -190,14 +199,15 @@ export class AiUsageApp {
         let handlerId = 0;
         try {
             settings = providerSettings(this._extension.dir, id);
-            // Any of this provider's switches changing is a reason to rebuild
-            // and redraw; only `enabled` needs the figures fetched again.
+            // Only `enabled` changes which providers exist, so it is the only
+            // switch worth a rebuild and a read; the rest are a redraw.
             handlerId = settings.connect('changed', (_s, key) => {
-                this._buildEntries();
-                if (key === 'enabled')
-                    this.refresh();
-                else
+                if (key !== 'enabled') {
                     this._redraw();
+                    return;
+                }
+                this._buildEntries();
+                this.refresh();
             });
         } catch (e) {
             Log.error(`Could not open settings for provider '${id}'`, e);
@@ -214,31 +224,22 @@ export class AiUsageApp {
             return;
 
         this._interface = new Gio.Settings({settings_schema: schema});
-        this._readClock();
-        this._interfaceId = this._interface.connect('changed::clock-format', () => {
-            this._readClock();
-            this._applySettings();
-            this._redraw();
-        });
+        this._interfaceId = this._interface.connect('changed::clock-format',
+            () => this._displayChanged());
     }
 
-    _readClock() {
-        this._clock = this._interface.get_string('clock-format') === '12h' ? '12h' : '24h';
-    }
-
+    // Each global key does only what it is about. None of them changes which
+    // providers exist, so none re-runs detect() or touches the credential
+    // monitors -- and a credential change still waiting out its debounce gets
+    // its read.
     _watchSettings() {
-        const relayout = ['panel-box', 'panel-index'];
-
-        for (const key of [...relayout, 'warn-percent', 'critical-percent', 'primary-limit', 'show-percent', 'reset-format', 'poll-seconds', 'notify-percent']) {
-            this._settingsIds.push(this._settings.connect(`changed::${key}`, () => {
-                this._applySettings();
-                if (relayout.includes(key))
-                    this._placeButtons();
-                if (key === 'poll-seconds')
-                    this._schedule();
-                this._redraw();
-            }));
-        }
+        const on = (keys, handler) => {
+            for (const key of keys)
+                this._settingsIds.push(this._settings.connect(`changed::${key}`, handler));
+        };
+        on(['panel-box', 'panel-index'], () => this._placeButtons());
+        on(['poll-seconds'], () => this._schedule());
+        on(DISPLAY_KEYS, () => this._displayChanged());
     }
 
     // ---- the buttons --------------------------------------------------------
@@ -303,13 +304,13 @@ export class AiUsageApp {
         ]);
         indicator.menu.connect('open-state-changed', (_menu, open) => {
             if (open)
-                this.refresh();
+                this._refreshIfStale();
         });
 
-        indicator.configure({showPercent: this._showPercent, pick: this._pick, resetFormat: this._resetFormat, clock: this._clock});
-        // Figures for a button built mid-session are a poll away, and a blank
-        // button in the meantime looks broken.
-        indicator.setBusy();
+        indicator.configure(this._buttonOptions());
+        // Drawn once, with nothing read: an ellipsis on the button and
+        // "Reading usage…" in the pop-up until the figures arrive.
+        indicator.setReading(null);
         return {indicator};
     }
 
@@ -380,13 +381,13 @@ export class AiUsageApp {
     // Every path to fresh figures comes through here. A poll already out is
     // cancelled rather than raced, so the newest answer is always the one shown.
     refresh() {
+        this._cancelInFlight();
         if (!this._http || !this._entries.length) {
             this._raw = [];
             this._redraw();
             return;
         }
 
-        this._cancelInFlight();
         const cancellable = new Gio.Cancellable();
         this._cancellable = cancellable;
 
@@ -394,7 +395,22 @@ export class AiUsageApp {
             if (e instanceof Gio.IOErrorEnum && e.matches(Gio.IOErrorEnum, Gio.IOErrorEnum.CANCELLED))
                 return;
             Log.error('Reading usage failed', e);
+        }).finally(() => {
+            // Answered, so no longer in flight, which _refreshIfStale() asks.
+            if (this._cancellable === cancellable)
+                this._cancellable = null;
         });
+    }
+
+    // Opening a pop-up reads afresh, unless the figures are under a minute old
+    // or a read is already out: sweeping the pointer along the buttons with a
+    // menu open would otherwise cancel and restart a round per button. The
+    // header's Refresh goes straight to refresh(), so it always reads.
+    _refreshIfStale() {
+        const now = GLib.DateTime.new_now_utc();
+        if (this._cancellable || this._raw.some(r => now.difference(r.at) < FRESH_FOR_US))
+            return;
+        this.refresh();
     }
 
     async _readAll(cancellable) {
@@ -433,10 +449,10 @@ export class AiUsageApp {
     // "Reading usage…" in its pop-up.
     _redraw() {
         const byId = new Map(this._raw.map(reading => [reading.providerId, reading]));
-        for (const {provider, options} of this._entries) {
+        for (const {provider, settings} of this._entries) {
             const reading = byId.get(provider.id);
             this._buttons.get(provider.id)?.indicator.setReading(
-                reading ? applyOptions(reading, options, this._thresholds) : null);
+                reading ? applyOptions(reading, displayOptions(settings), this._thresholds) : null);
         }
     }
 
@@ -449,7 +465,7 @@ export class AiUsageApp {
 
     _schedule() {
         this._unschedule();
-        this._timerId = GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, this._pollSeconds, () => {
+        this._timerId = GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, this._settings.get_int('poll-seconds'), () => {
             if (!this._userIsIdle())
                 this.refresh();
             else
@@ -497,14 +513,12 @@ export class AiUsageApp {
         }
     }
 
+    // Leaves a pending debounce alone: the write it is waiting out happened
+    // whatever the monitors are being rebuilt for, so it still gets its read.
     _stopWatchingCredentials() {
         for (const monitor of this._monitors)
             monitor.cancel();
         this._monitors = [];
-        if (this._debounceId) {
-            GLib.Source.remove(this._debounceId);
-            this._debounceId = 0;
-        }
     }
 
     // A credential write arrives as several events in a row, and reading

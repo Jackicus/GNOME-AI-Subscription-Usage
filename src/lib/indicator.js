@@ -155,29 +155,20 @@ class UsageIndicator extends PanelMenu.Button {
     // `pick` chooses the limit the button itself shows, `resetFormat` how a
     // reset time is worded and `clock` the 12/24-hour clock it is worded on, so
     // the settings that decide all three live with the settings and not in here.
+    //
+    // Stored, not drawn: the caller always hands over a reading next, and that
+    // is the one render, however many settings changed.
     configure({showPercent, pick, resetFormat, clock}) {
         this._showPercent = showPercent;
         this._pick = pick;
         this._resetFormat = resetFormat ?? ResetFormat.AUTO;
         this._clock = clock ?? null;
-        this._render();
     }
 
-    // null until the provider has answered.
+    // null until the provider has answered. This is the only thing that draws.
     setReading(reading) {
         this._reading = reading;
         this._render();
-    }
-
-    // Shown while the first poll is still out, so the button is never blank.
-    // The visibility has to be set too: the first render happens before any
-    // reading exists and hides the label, so setting only the text showed
-    // nothing at all.
-    setBusy() {
-        if (this._reading)
-            return;
-        this._label.set_text('…');
-        this._showFigure(true);
     }
 
     _render() {
@@ -187,13 +178,22 @@ class UsageIndicator extends PanelMenu.Button {
 
     _renderPanel() {
         const reading = this._reading;
-        const shown = reading?.ok ? this._pick?.(reading) ?? reading.worst : null;
+        // Nothing answered yet: an ellipsis, so the button is never blank
+        // while the first read is out.
+        if (!reading) {
+            this._label.set_text('…');
+            this._showFigure(true);
+            this._setPanelSeverity(Severity.NORMAL);
+            return;
+        }
+
+        const shown = reading.ok ? this._pick?.(reading) ?? reading.worst : null;
         // With nothing readable the button keeps its icon but drops the figure,
         // and turns amber when the fix is the user's: signing in again.
         if (!shown) {
             this._label.set_text('');
             this._showFigure(false);
-            const broken = reading?.status === Status.EXPIRED || reading?.status === Status.SIGNED_OUT;
+            const broken = reading.status === Status.EXPIRED || reading.status === Status.SIGNED_OUT;
             this._setPanelSeverity(broken ? Severity.WARNING : Severity.NORMAL);
             return;
         }
@@ -275,10 +275,10 @@ class UsageIndicator extends PanelMenu.Button {
     // which owns both. They are drawn at the right-hand end of the header, the
     // way Claude Code's own usage panel puts an arrow level with its title and
     // Quick Settings puts one at the end of a slider row: no row of their own,
-    // and so no height of their own.
+    // and so no height of their own. Stored, like configure(): the next
+    // setReading() draws them.
     setActions(items) {
         this._actions = items ?? [];
-        this._renderMenu();
     }
 });
 
