@@ -32,8 +32,6 @@ import * as Log from './log.js';
 // dropped when the module is, which is when the shell restarts.
 const notified = new Map();
 
-const PANEL_BOXES = {left: 'left', center: 'center', right: 'right'};
-
 // The gauge in icons/: the fallback for a provider that has been given no icon
 // of its own, or whose file is missing.
 const FALLBACK_ICON = 'ai-usage-symbolic.svg';
@@ -48,7 +46,7 @@ export class AiUsageApp {
         this._settings = extension.getSettings();
 
         this._http = null;
-        this._buttons = new Map();   // provider id -> {indicator, menuId}
+        this._buttons = new Map();   // provider id -> {indicator}
         this._entries = [];     // {provider, settings, options} per live provider
         this._raw = [];         // what the providers returned, untouched
 
@@ -303,7 +301,7 @@ export class AiUsageApp {
                 this._extension.openPreferences();
             }},
         ]);
-        const menuId = indicator.menu.connect('open-state-changed', (_menu, open) => {
+        indicator.menu.connect('open-state-changed', (_menu, open) => {
             if (open)
                 this.refresh();
         });
@@ -312,7 +310,7 @@ export class AiUsageApp {
         // Figures for a button built mid-session are a poll away, and a blank
         // button in the meantime looks broken.
         indicator.setBusy();
-        return {indicator, menuId};
+        return {indicator};
     }
 
     // Destroying the indicator is what releases its panel role: the shell drops
@@ -323,8 +321,6 @@ export class AiUsageApp {
         this._buttons.delete(id);
         if (!button)
             return;
-        if (button.menuId)
-            button.indicator.menu.disconnect(button.menuId);
         button.indicator.destroy();
     }
 
@@ -354,7 +350,7 @@ export class AiUsageApp {
     // Placed in registry order, from `panel-index`, so that which button is
     // where does not depend on who answered first.
     _placeButtons() {
-        const boxName = PANEL_BOXES[this._settings.get_string('panel-box')] ?? 'right';
+        const boxName = this._settings.get_string('panel-box');
         const index = this._settings.get_int('panel-index');
         const target = panelBox(boxName);
 
@@ -371,12 +367,9 @@ export class AiUsageApp {
                 // to be distinct per button or the second addToStatusArea throws.
                 Main.panel.addToStatusArea(`${this._extension.uuid}-${provider.id}`, button.indicator,
                     position(target, index, offset), boxName);
-            } else if (target) {
+            } else {
                 parent.remove_child(container);
                 target.insert_child_at_index(container, position(target, index, offset));
-            } else {
-                Log.warn(`The shell has no '${boxName}' panel box; leaving the buttons where they are.`);
-                return;
             }
             offset++;
         }
@@ -598,20 +591,12 @@ function pickLimit(reading, mode) {
 function position(target, index, offset) {
     if (index < 0)
         return -1;
-    const count = target ? target.get_n_children() : index + offset;
-    return Math.min(index + offset, count);
+    return Math.min(index + offset, target.get_n_children());
 }
 
 // The panel's boxes are private, but reparenting into them is the only way to
 // move an indicator that is already registered, and it is long-standing
 // practice among extensions that offer a position setting.
 function panelBox(name) {
-    switch (name) {
-    case 'left':
-        return Main.panel._leftBox;
-    case 'center':
-        return Main.panel._centerBox;
-    default:
-        return Main.panel._rightBox;
-    }
+    return Main.panel[`_${name}Box`];
 }

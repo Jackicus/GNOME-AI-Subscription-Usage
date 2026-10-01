@@ -308,8 +308,8 @@ inset as the bars' (#36).
 Every limit's name is bold. Weight used to mean "the limit in force", which
 Claude Code's own panel does not distinguish either, and which made two of the
 three names read as less important rather than one as current. `Limit.active`
-stays in the model — `app.js` reads it, and `make providers` still prints "in
-force" — it simply no longer changes how a row is drawn.
+stays in the model — only the dev scripts read it, and `make providers` still
+prints "in force" — it simply no longer changes how a row is drawn.
 
 The two actions — refresh, and an arrow to the preferences — sit at the
 **right-hand end of the header row**, level with the provider's name and the

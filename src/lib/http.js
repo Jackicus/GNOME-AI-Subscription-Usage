@@ -14,7 +14,7 @@ import Soup from 'gi://Soup?version=3.0';
 // overlap the next one at the shortest interval the schema allows (60s).
 const TIMEOUT_SECONDS = 20;
 
-export class HttpError extends Error {
+class HttpError extends Error {
     constructor(status, message) {
         super(message);
         this.status = status;   // the HTTP status, or 0 when the request never landed

@@ -57,7 +57,7 @@ export function displayOptions(settings) {
 // The switches worth showing for a provider: the ones its capabilities say it
 // can honour. Keeping this beside the schema means the preferences never offer
 // a switch that would do nothing.
-export const PROVIDER_KEYS = [
+const PROVIDER_KEYS = [
     {key: 'show-per-model', title: 'List per-model limits', capability: 'perModel'},
     {key: 'show-breakdown', title: 'Show where the usage went', capability: 'breakdown'},
     {key: 'show-credits', title: 'Show paid-for extra usage', capability: 'credits'},
