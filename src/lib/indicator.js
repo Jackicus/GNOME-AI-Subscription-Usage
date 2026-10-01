@@ -1,14 +1,8 @@
 // A button in the top bar and the pop-up under it.
 //
-// It renders Readings and nothing else: no polling, no provider knowledge, no
-// settings reads. Whatever put it on screen hands it a set of Readings with
-// setReadings(), and it draws them.
-//
-// How many of these there are, and which readings each one gets, is app.js's
-// business: one per provider carrying that provider's own reading and icon, or
-// a single one carrying them all. Nothing in here knows which arrangement it
-// is in -- a button given one reading and a button given four draw the same
-// way.
+// It renders a Reading and nothing else: no polling, no provider knowledge, no
+// settings reads. Whatever put it on screen hands it its provider's Reading
+// with setReading(), and it draws it.
 
 import Clutter from 'gi://Clutter';
 import Gio from 'gi://Gio';
@@ -115,11 +109,10 @@ class UsageBar extends St.BoxLayout {
 
 export const UsageIndicator = GObject.registerClass(
 class UsageIndicator extends PanelMenu.Button {
-    // The icon and the name are the caller's: with a button per provider they
-    // are that provider's, and they are what tells two percentages in the top
-    // bar apart.
+    // The icon and the name are the provider's, and they are what tells two
+    // percentages in the top bar apart.
     _init(iconFile, name) {
-        super._init(0.5, name ? `${name} usage` : 'AI Usage', false);
+        super._init(0.5, `${name} usage`, false);
 
         // Two style classes of this extension's own, and neither is decoration:
         // the button's one condenses the shell's 12px of panel padding, which
@@ -144,7 +137,7 @@ class UsageIndicator extends PanelMenu.Button {
         this._box.add_child(this._label);
         this.add_child(this._box);
 
-        this._readings = [];
+        this._reading = null;
         this._showIcon = true;
         this._showPercent = true;
         this._pick = null;      // (reading) => Limit, set by whoever drives us
@@ -152,7 +145,7 @@ class UsageIndicator extends PanelMenu.Button {
 
         // The pop-up's own title when there is no reading to head it -- see
         // _renderMenu(), where the actions still have to be reachable.
-        this._name = name || 'AI Usage';
+        this._name = name;
         this._actions = [];
 
         this._section = new PopupMenu.PopupMenuSection();
@@ -173,8 +166,9 @@ class UsageIndicator extends PanelMenu.Button {
         this._render();
     }
 
-    setReadings(readings) {
-        this._readings = readings;
+    // null until the provider has answered.
+    setReading(reading) {
+        this._reading = reading;
         this._render();
     }
 
@@ -183,7 +177,7 @@ class UsageIndicator extends PanelMenu.Button {
     // reading exists and hides the label, so setting only the text showed
     // nothing at all.
     setBusy() {
-        if (this._readings.length)
+        if (this._reading)
             return;
         this._label.set_text('…');
         this._showFigure(true);
@@ -195,29 +189,15 @@ class UsageIndicator extends PanelMenu.Button {
     }
 
     _renderPanel() {
-        // A provider can be listed in the pop-up yet barred from the button,
-        // which is how one subscription becomes the one you actually watch.
-        const usable = this._readings.filter(r => r.ok && r.limits.length && r.panelEligible);
+        const reading = this._reading;
+        const shown = reading?.ok ? this._pick?.(reading) ?? reading.worst : null;
         // With nothing readable the button keeps its icon but drops the figure,
-        // and turns the colour of the worst thing wrong.
-        if (!usable.length) {
+        // and turns amber when the fix is the user's: signing in again.
+        if (!shown) {
             this._label.set_text('');
             this._showFigure(false);
-            const broken = this._readings.some(r => r.status === Status.EXPIRED || r.status === Status.SIGNED_OUT);
+            const broken = reading?.status === Status.EXPIRED || reading?.status === Status.SIGNED_OUT;
             this._setPanelSeverity(broken ? Severity.WARNING : Severity.NORMAL);
-            return;
-        }
-
-        // Across providers, the one closest to its limit is the one to show:
-        // that is the number that decides whether you can keep working.
-        let shown = null;
-        for (const reading of usable) {
-            const limit = this._pick?.(reading) ?? reading.worst;
-            if (limit && (!shown || limit.percent > shown.percent))
-                shown = limit;
-        }
-        if (!shown) {
-            this._showFigure(false);
             return;
         }
 
@@ -248,23 +228,15 @@ class UsageIndicator extends PanelMenu.Button {
     _renderMenu() {
         this._section.removeAll();
 
-        // Nothing read yet, or nothing to read: the pop-up still needs a way
-        // to the preferences, which is where a provider gets switched on. So
-        // the empty state gets a header of its own to carry the actions --
-        // this button's name, since there is no provider to name instead.
-        if (!this._readings.length) {
+        // Nothing read yet: the pop-up still needs its refresh and its way to
+        // the preferences. So the empty state gets a header of its own to
+        // carry the actions -- the name this button was built with, since
+        // there is no reading to take one from.
+        if (!this._reading) {
             this._section.addMenuItem(headerItem(this._name, null, this._actions));
             this._section.addMenuItem(captionItem('Reading usage…'));
-            this._padLastRow();
-            return;
-        }
-
-        let first = true;
-        for (const reading of this._readings) {
-            if (!first)
-                this._section.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
-            this._addReading(reading, first);
-            first = false;
+        } else {
+            this._addReading(this._reading);
         }
         this._padLastRow();
     }
@@ -280,14 +252,8 @@ class UsageIndicator extends PanelMenu.Button {
         rows[rows.length - 1]?.add_style_class_name('ai-usage-last');
     }
 
-    // `withActions` is true for the first reading in the pop-up and no other.
-    // The actions belong to the pop-up rather than to any one provider --
-    // refresh reads every provider, and there is one preferences window -- so
-    // in `combined` mode, where several providers share one pop-up, they are
-    // drawn on the first header and nowhere else.
-    _addReading(reading, withActions) {
-        this._section.addMenuItem(headerItem(reading.displayName, reading.plan,
-            withActions ? this._actions : null));
+    _addReading(reading) {
+        this._section.addMenuItem(headerItem(reading.displayName, reading.plan, this._actions));
 
         if (!reading.ok) {
             this._section.addMenuItem(captionItem(explain(reading)));
@@ -316,10 +282,10 @@ class UsageIndicator extends PanelMenu.Button {
     }
 
     // The actions -- a refresh and the preferences -- are set by the caller,
-    // which owns both. They are drawn at the right-hand end of the first
-    // header, the way Claude Code's own usage panel puts an arrow level with
-    // its title and Quick Settings puts one at the end of a slider row: no row
-    // of their own, and so no height of their own.
+    // which owns both. They are drawn at the right-hand end of the header, the
+    // way Claude Code's own usage panel puts an arrow level with its title and
+    // Quick Settings puts one at the end of a slider row: no row of their own,
+    // and so no height of their own.
     setActions(items) {
         this._actions = items ?? [];
         this._renderMenu();
@@ -390,10 +356,9 @@ function inertItem(styleClass) {
     return item;
 }
 
-// The provider's name, the plan dimmed beside it, and -- on the first header in
-// the pop-up only -- the pop-up's actions hard right. That is the shape Claude
-// Code's own usage panel has, and it is what lets the actions cost no height:
-// the row was already here.
+// The provider's name, the plan dimmed beside it, and the pop-up's actions hard
+// right. That is the shape Claude Code's own usage panel has, and it is what
+// lets the actions cost no height: the row was already here.
 //
 // Exactly one thing in the row expands, and it is the plan, so all the slack
 // lands between the plan and the buttons and the buttons sit against the right

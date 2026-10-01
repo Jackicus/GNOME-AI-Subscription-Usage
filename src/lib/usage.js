@@ -53,7 +53,6 @@ export class Reading {
         this.credits = credits;     // {percent, label, detail?} for paid-for extra usage;
                                     // percent is null when it is switched off
         this.message = message;     // the provider's own words, when it has some
-        this.panelEligible = true;  // may this one supply the figure on the button
         this.at = GLib.DateTime.new_now_utc();
     }
 

@@ -13,7 +13,7 @@
 import GLib from 'gi://GLib';
 import Gio from 'gi://Gio';
 
-import {PanelMode, applyOptions, buttonOptions, displayOptions} from '../src/lib/settings.js';
+import {applyOptions, buttonOptions} from '../src/lib/settings.js';
 import {AntigravityProvider} from '../src/lib/providers/antigravity.js';
 import {ClaudeProvider, planLabel, readAccountTier} from '../src/lib/providers/claude.js';
 import {CodexProvider} from '../src/lib/providers/codex.js';
@@ -280,7 +280,7 @@ print('\n\x1b[1mDisplay switches\x1b[0m — hiding a row must not throw it away'
 {
     const full = parse(ClaudeProvider, fixture('claude-usage.json'),
         {rateLimitTier: 'default_claude_max_5x'});
-    const everything = {showInPanel: true, showPerModel: true, showBreakdown: true, showCredits: true};
+    const everything = {showPerModel: true, showBreakdown: true, showCredits: true};
     const hidden = applyOptions(full, {...everything, showPerModel: false, showBreakdown: false});
 
     check('per-model rows hidden in the view', hidden.limits.length, 2);
@@ -293,20 +293,6 @@ print('\n\x1b[1mDisplay switches\x1b[0m — hiding a row must not throw it away'
     check('and the breakdown', restored.breakdown.length, 1);
     check('the view keeps its getters', restored.ok, true);
     check('and its computed properties', formatPercent(restored.worst.percent), '97%');
-
-    const offPanel = applyOptions(full, {...everything, showInPanel: false});
-    check('panel eligibility follows the switch', offPanel.panelEligible, false);
-    check('without changing the reading', full.panelEligible, true);
-
-    // `show-in-panel` decides which providers may supply the figure on the one
-    // shared button, so it means nothing when each provider has a button of its
-    // own -- and a stale switch honoured there would take a whole button away.
-    // A stub is enough: displayOptions only ever asks for booleans.
-    const allOff = {get_boolean: () => false};
-    const perProvider = applyOptions(full, displayOptions(allOff, PanelMode.PER_PROVIDER));
-    const combined = applyOptions(full, displayOptions(allOff, PanelMode.COMBINED));
-    check('a button each ignores show-in-panel', perProvider.panelEligible, true);
-    check('one shared button honours it', combined.panelEligible, false);
 }
 
 // A button made of nothing at all is the one arrangement of its two switches

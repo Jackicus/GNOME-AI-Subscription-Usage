@@ -9,7 +9,7 @@ import Gtk from 'gi://Gtk';
 import {ExtensionPreferences} from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
 
 import {allProviders} from './lib/providers/registry.js';
-import {keyAppliesTo, keysFor, providerSettings} from './lib/settings.js';
+import {keysFor, providerSettings} from './lib/settings.js';
 
 // prefs.js runs in its own process, without the shell's imports, so it can only
 // load modules that stay clear of St and of the shell's resource:// paths. The
@@ -22,9 +22,7 @@ export default class AiUsagePreferences extends ExtensionPreferences {
 
         window.add(this._buttonPage(settings));
         window.add(this._readingPage(settings));
-        // The provider rows need the global settings too: one of their
-        // switches only means something in one of the panel modes.
-        window.add(this._providersPage(settings));
+        window.add(this._providersPage());
     }
 
     _buttonPage(settings) {
@@ -32,18 +30,6 @@ export default class AiUsagePreferences extends ExtensionPreferences {
             title: 'Buttons',
             icon_name: 'preferences-desktop-appearance-symbolic',
         });
-
-        const arrangement = new Adw.PreferencesGroup({
-            title: 'How many',
-            description: 'A button per provider keeps every percentage beside the icon of the subscription it '
-                + 'belongs to. A single button spends one slot in the top bar instead, carrying whichever provider '
-                + 'is closest to its limit and listing them all in the one pop-up.',
-        });
-        arrangement.add(comboRow(settings, 'panel-mode', 'Buttons in the top bar', [
-            ['per-provider', 'One button per provider'],
-            ['combined', 'A single button for all of them'],
-        ]));
-        page.add(arrangement);
 
         const shown = new Adw.PreferencesGroup({
             title: 'What they show',
@@ -129,7 +115,7 @@ export default class AiUsagePreferences extends ExtensionPreferences {
         return page;
     }
 
-    _providersPage(shared) {
+    _providersPage() {
         const page = new Adw.PreferencesPage({
             title: 'Providers',
             icon_name: 'system-users-symbolic',
@@ -144,13 +130,13 @@ export default class AiUsagePreferences extends ExtensionPreferences {
         });
 
         for (const provider of allProviders())
-            group.add(this._providerRow(provider, shared));
+            group.add(this._providerRow(provider));
 
         page.add(group);
         return page;
     }
 
-    _providerRow(provider, shared) {
+    _providerRow(provider) {
         const path = GLib.find_program_in_path(provider.cli);
         const tool = provider.cliName ?? provider.cli;
 
@@ -182,24 +168,10 @@ export default class AiUsagePreferences extends ExtensionPreferences {
         // Only the switches this provider can actually honour: its capabilities
         // decide, so a provider with no per-model limits is never offered one.
         for (const key of keysFor(provider)) {
-            const child = new Adw.SwitchRow({title: key.title, subtitle: key.subtitle ?? ''});
-            settings.bind(key.key, child, 'active', Gio.SettingsBindFlags.DEFAULT);
-            // Two things decide whether a row can be touched: the provider
-            // being switched on, and -- for a key that only means something in
-            // one panel mode -- the top bar being in that mode. A GSettings
-            // bind carries one source, so this is kept in step by hand. Left
-            // visible rather than hidden, so the window does not jump when the
-            // mode changes; insensitive says plainly that it does nothing.
-            const sync = () => {
-                child.sensitive = settings.get_boolean('enabled')
-                    && keyAppliesTo(key, shared.get_string('panel-mode'));
-            };
-            sync();
-            const watched = [
-                [settings, settings.connect('changed::enabled', sync)],
-                [shared, shared.connect('changed::panel-mode', sync)],
-            ];
-            child.connect('destroy', () => watched.forEach(([s, id]) => s.disconnect(id)));
+            const child = switchRow(settings, key.key, key.title);
+            // A provider switched off is not read, so what it would show is
+            // moot: the rows stay, insensitive, rather than vanishing.
+            settings.bind('enabled', child, 'sensitive', Gio.SettingsBindFlags.GET);
             row.add_row(child);
         }
 
