@@ -90,7 +90,7 @@ export default class AiUsagePreferences extends ExtensionPreferences {
 
         const group = new Adw.PreferencesGroup({
             title: 'How often',
-            description: 'Opening the pop-up always reads the figures again, and so does signing in or refreshing your login, '
+            description: 'Opening the pop-up reads the figures again once they are a minute old, and so does signing in or refreshing your login, '
                 + 'so a long interval here still gives you fresh numbers whenever you look.',
         });
         group.add(spinRow(settings, 'poll-seconds', 'Seconds between readings', null, 60, 3600, 30));

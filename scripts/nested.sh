@@ -249,7 +249,7 @@ take_shots() {
     # The recording indicator outlives the process that asked for it by a few
     # seconds, so wait it out rather than photograph the shell mid-tidy. Six is
     # measured: it was still there at four and gone by six.
-    drive "wait 6" "shot $SHOT_DIR/pop-up$SUFFIX.png 1085 0 500 260"
+    drive "wait 6" "shot $SHOT_DIR/pop-up$SUFFIX.png 1085 0 500 330"
     drive "key Escape"
 
     # The preferences are a GTK window and follow their own colour setting
