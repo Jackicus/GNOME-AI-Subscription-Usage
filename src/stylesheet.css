@@ -144,7 +144,9 @@
    edge: it is the only column with a size of its own, so the two beside it keep
    the same edges from row to row. Wide enough for "100%" at this size, with the
    figure aligned to the end of it from indicator.js. In em rather than pixels
-   so that it still holds "100%" on a desktop with the text scaled up. */
+   so that it still holds "100%" on a desktop with the text scaled up. The cell
+   is an St.BoxLayout, not an St.Bin: a bin centres the figure whatever its
+   x_align says, leaving it short of the bar's right end below. */
 .ai-usage-limit-percent {
     min-width: 3.5em;
 }

@@ -56,7 +56,7 @@
             <default>300</default>
             <range min="60" max="3600"/>
             <summary>Seconds between readings</summary>
-            <description>How often to ask the provider for the figures. Opening the pop-up always reads them again, and so does the stored login changing, so a long interval here still gives you fresh numbers when you look.</description>
+            <description>How often to ask the provider for the figures. Opening the pop-up reads them again once they are a minute old, and so does the stored login changing, so a long interval here still gives you fresh numbers when you look.</description>
         </key>
 
         <!-- Colour and warnings -->
