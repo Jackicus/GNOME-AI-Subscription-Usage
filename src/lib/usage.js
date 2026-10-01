@@ -6,11 +6,11 @@
 import GLib from 'gi://GLib';
 
 // Why a limit could not be read. The interface words each of these itself,
-// because the fix differs: an absent tool is a thing to install, a stale login
-// is a thing to run, and a failed request is a thing to wait out.
+// because the fix differs: a stale login is a thing to run, and a failed request
+// is a thing to wait out. (A provider whose tool is not installed has no Reading
+// at all -- it is left out before anything is read.)
 export const Status = {
     OK: 'ok',
-    NO_CLI: 'no-cli',          // the provider's command-line tool is not installed
     SIGNED_OUT: 'signed-out',  // installed, but no stored login was found
     EXPIRED: 'expired',        // a login was found, but the service rejected it
     UNAVAILABLE: 'unavailable', // the request failed, or came back unreadable
@@ -26,7 +26,7 @@ export const Severity = {
 // One bar in the pop-up: a percentage, when it resets, and whether the provider
 // says this is the limit currently in force.
 export class Limit {
-    constructor({id, label, percent, severity = Severity.NORMAL, resetsAt = null, active = false, scoped = false, detail = null}) {
+    constructor({id, label, percent, severity = Severity.NORMAL, resetsAt = null, active = false, scoped = false}) {
         this.id = id;
         this.label = label;
         this.percent = clampPercent(percent);
@@ -34,7 +34,6 @@ export class Limit {
         this.resetsAt = resetsAt;   // GLib.DateTime in UTC, or null when open-ended
         this.active = active;
         this.scoped = scoped;       // metered per model rather than per account
-        this.detail = detail;       // e.g. a spend figure, shown under the bar
     }
 }
 

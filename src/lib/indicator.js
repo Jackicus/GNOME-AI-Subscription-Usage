@@ -259,7 +259,7 @@ class UsageIndicator extends PanelMenu.Button {
             this._section.addMenuItem(limitItem({
                 label: reading.credits.label,
                 percent: reading.credits.percent,
-                severity: reading.credits.severity ?? Severity.NORMAL,
+                severity: reading.credits.severity,
                 resetsAt: null,
                 active: false,
             }, this._resetFormat, this._clock));
@@ -417,7 +417,7 @@ function limitItem(limit, resetFormat, clock) {
     const top = new St.BoxLayout({style_class: 'ai-usage-limit-row', x_expand: true});
     // Every limit's name is drawn the same way. Weight used to mean "the one
     // in force", which Claude Code's own panel does not distinguish either --
-    // `limit.active` is still in the model and app.js still reads it, it just
+    // `limit.active` is still in the model (the dev scripts print it), it just
     // no longer changes how a row looks.
     const name = new St.Label({
         text: limit.label,

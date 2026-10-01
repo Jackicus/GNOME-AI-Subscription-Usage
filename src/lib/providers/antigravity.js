@@ -108,7 +108,7 @@ export const AntigravityProvider = {
             if (e instanceof Gio.IOErrorEnum)
                 throw e;
 
-            const failure = failureReading(this, e, auth.plan ?? this._plan);
+            const failure = failureReading(this, e, this._plan);
             // The project id is bound to the login, so a rejected token
             // means the one we remembered may not be ours any more.
             if (failure.status === Status.EXPIRED)
@@ -278,6 +278,5 @@ function parseToken(text) {
         accessToken,
         // No expiry means letting the request decide rather than assuming.
         expired: expiry ? expiry.to_unix() * 1000 <= Date.now() : false,
-        plan: null,
     };
 }
