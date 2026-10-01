@@ -5,10 +5,6 @@
         <value nick="session" value="1"/>
         <value nick="weekly" value="2"/>
     </enum>
-    <enum id="org.gnome.shell.extensions.ai-usage.panel-mode">
-        <value nick="per-provider" value="0"/>
-        <value nick="combined" value="1"/>
-    </enum>
     <enum id="org.gnome.shell.extensions.ai-usage.panel-box">
         <value nick="left" value="0"/>
         <value nick="center" value="1"/>
@@ -22,13 +18,6 @@
     </enum>
 
     <schema path="/org/gnome/shell/extensions/ai-usage/" id="org.gnome.shell.extensions.ai-usage">
-
-        <!-- How many buttons there are -->
-        <key name="panel-mode" enum="org.gnome.shell.extensions.ai-usage.panel-mode">
-            <default>'per-provider'</default>
-            <summary>One button per provider, or a single button for all of them</summary>
-            <description>"per-provider" gives every provider that is switched on and whose tool is installed its own button, with its own icon, figure and pop-up, so a percentage always sits beside something that names the subscription it belongs to. "combined" is one button carrying whichever provider is closest to its limit, and one pop-up listing them all; the per-provider "show-in-panel" switch decides which providers may supply that figure, and means nothing in the other mode.</description>
-        </key>
 
         <!-- What a button shows -->
         <key name="primary-limit" enum="org.gnome.shell.extensions.ai-usage.primary-limit">
@@ -64,7 +53,7 @@
         <key name="panel-box" enum="org.gnome.shell.extensions.ai-usage.panel-box">
             <default>'right'</default>
             <summary>Which end of the top bar the buttons sit at</summary>
-            <description>"right" puts them among the status icons, "center" beside the clock, "left" beside Activities. With a button per provider they all go in the same end, side by side.</description>
+            <description>"right" puts them among the status icons, "center" beside the clock, "left" beside Activities. They all go in the same end, side by side.</description>
         </key>
         <key name="panel-index" type="i">
             <default>0</default>
@@ -119,12 +108,7 @@
         <key name="enabled" type="b">
             <default>true</default>
             <summary>Read this provider</summary>
-            <description>Turning a provider off stops it being read at all, and takes its button -- or its section of the shared pop-up -- with it. A provider whose command-line tool is not installed is left out whatever this says.</description>
-        </key>
-        <key name="show-in-panel" type="b">
-            <default>true</default>
-            <summary>Let this provider's figure appear on the shared button</summary>
-            <description>Only applies when "panel-mode" is "combined": with this off the provider is still listed in that pop-up, but never supplies the single figure on the button itself. Useful when one subscription is the one you actually watch. With a button per provider there is no shared figure to be kept off, so this is ignored.</description>
+            <description>Turning a provider off stops it being read at all, and takes its button with it. A provider whose command-line tool is not installed is left out whatever this says.</description>
         </key>
         <key name="show-per-model" type="b">
             <default>true</default>

@@ -12,14 +12,6 @@ import Gio from 'gi://Gio';
 const PROVIDER_SCHEMA = 'org.gnome.shell.extensions.ai-usage.provider';
 const PROVIDER_PATH = '/org/gnome/shell/extensions/ai-usage/providers';
 
-// The two ways the top bar can be arranged, as the `panel-mode` key spells
-// them. Only `combined` has a single figure for the providers to compete for,
-// which is the one thing that changes what the switches below mean.
-export const PanelMode = {
-    PER_PROVIDER: 'per-provider',
-    COMBINED: 'combined',
-};
-
 // The extension's own schemas are not in the system directory, so the source is
 // built against the extension's schemas/ -- with the default source as its
 // parent, so a lookup still falls through to the system schemas.
@@ -51,16 +43,8 @@ export function providerSettings(extensionDir, providerId) {
 
 // What the pop-up should leave out for this provider, gathered once so that
 // neither the renderer nor the provider modules read settings themselves.
-//
-// The panel mode is taken here rather than further in because it decides what
-// one of the switches means: with a button per provider there is no single
-// figure to be kept off, so `show-in-panel` has nothing to say and is ignored.
-// Reading it anyway would let a stale switch silently remove a whole button.
-export function displayOptions(settings, mode = PanelMode.PER_PROVIDER) {
+export function displayOptions(settings) {
     return {
-        showInPanel: mode === PanelMode.COMBINED
-            ? settings.get_boolean('show-in-panel')
-            : true,
         showPerModel: settings.get_boolean('show-per-model'),
         showBreakdown: settings.get_boolean('show-breakdown'),
         showCredits: settings.get_boolean('show-credits'),
@@ -93,24 +77,13 @@ export function buttonOptions(settings) {
 // can honour. Keeping this beside the schema means the preferences never offer
 // a switch that would do nothing.
 export const PROVIDER_KEYS = [
-    {key: 'show-in-panel', title: 'Can appear on the shared button',
-        subtitle: 'Only when the top bar is set to a single button for every provider: with this off it is '
-            + 'listed in that pop-up but never supplies the figure beside the icon.',
-        capability: null, mode: PanelMode.COMBINED},
-    {key: 'show-per-model', title: 'List per-model limits', subtitle: null, capability: 'perModel'},
-    {key: 'show-breakdown', title: 'Show where the usage went', subtitle: null, capability: 'breakdown'},
-    {key: 'show-credits', title: 'Show paid-for extra usage', subtitle: null, capability: 'credits'},
+    {key: 'show-per-model', title: 'List per-model limits', capability: 'perModel'},
+    {key: 'show-breakdown', title: 'Show where the usage went', capability: 'breakdown'},
+    {key: 'show-credits', title: 'Show paid-for extra usage', capability: 'credits'},
 ];
 
 export function keysFor(provider) {
-    return PROVIDER_KEYS.filter(k => !k.capability || provider.capabilities?.[k.capability]);
-}
-
-// A key that only means something in one panel mode is still shown in the
-// other -- hiding rows as a setting changes makes the window jump -- but it is
-// insensitive there, which says plainly that it is not doing anything.
-export function keyAppliesTo(key, mode) {
-    return !key.mode || key.mode === mode;
+    return PROVIDER_KEYS.filter(k => provider.capabilities?.[k.capability]);
 }
 
 // The display switches, applied in one place so that neither the provider
@@ -125,7 +98,6 @@ export function applyOptions(reading, options) {
         return reading;
 
     const view = Object.assign(Object.create(Object.getPrototypeOf(reading)), reading);
-    view.panelEligible = options.showInPanel;
     view.limits = options.showPerModel
         ? reading.limits
         : reading.limits.filter(limit => !limit.scoped);

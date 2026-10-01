@@ -27,12 +27,10 @@
 #     extension's own settings can be tried the same way: append
 #
 #         [org/gnome/shell/extensions/ai-usage]
-#         panel-mode='combined'
+#         primary-limit='weekly'
 #
 #     to $RUN_DIR/config/glib-2.0/settings/keyfile. The backend watches that
-#     file, so a `--keep` shell picks the change up without a restart -- which
-#     is how the pop-up's actions were checked to be drawn once and not once
-#     per provider;
+#     file, so a `--keep` shell picks the change up without a restart;
 #   * its own Wayland socket, so a preferences window opened against it lands
 #     there and not on your desktop;
 #   * only this extension enabled, so anything that goes wrong is ours.
