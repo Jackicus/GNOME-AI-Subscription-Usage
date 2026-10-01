@@ -101,8 +101,6 @@ export default class AiUsagePreferences extends ExtensionPreferences {
                 + 'so a long interval here still gives you fresh numbers whenever you look.',
         });
         group.add(spinRow(settings, 'poll-seconds', 'Seconds between readings', null, 60, 3600, 30));
-        group.add(switchRow(settings, 'poll-when-idle', 'Keep reading while idle',
-            'Off by default: with nobody at the machine the readings are skipped until you come back.'));
         page.add(group);
 
         const notify = new Adw.PreferencesGroup({
