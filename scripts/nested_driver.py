@@ -1,13 +1,19 @@
 #!/usr/bin/env python3
-"""Screenshot and input driver for the throwaway GNOME Shell.
+"""Screenshot and input driver for the nested GNOME Shell.
 
 Always invoked through scripts/nested.sh, which points DBUS_SESSION_BUS_ADDRESS at
-the throwaway shell's private bus and exports NESTED_GEOMETRY / NESTED_RUN_DIR.
+the nested shell's private bus and exports NESTED_GEOMETRY / NESTED_RUN_DIR.
 Running it against your real session is pointless (and the name-ownership step
 below would fail there anyway).
 
+Copied from the GNOME-EXTENSIONS kit (template/scripts/nested_driver.py) by its
+scripts/sync.sh: change it there.
+
     nested_driver.py step CMD ARGS...       one step, argv form
     nested_driver.py batch "STEP" "STEP"... several steps over one connection
+    nested_driver.py stream WIDTH HEIGHT VIEWER_CMD...
+                                screencast the nested monitor to PipeWire and run
+                                VIEWER_CMD, with {node} replaced by the node id
 
 Steps:
     say TEXT...            flash TEXT as an on-screen banner
@@ -15,19 +21,17 @@ Steps:
     move X Y               move the pointer there without clicking (hover)
     scroll X Y up|down [N] N wheel notches (default 1) with the pointer there
     key KEYSYM             Escape, Return, a character, or a chord: Super+Page_Down
-    wait SECONDS           pause, e.g. for a pop-up to finish opening
+    wait SECONDS           pause, e.g. for a workspace slide to finish
     shot [FILE [X Y W H]]  screenshot, optionally of one region only
     window FILE            screenshot of the focused window alone, frame
-                           included, its rounded corners left transparent
+                           and shadow included -- the preferences, say
     overview on|off        show/hide the Activities overview
-
-Ported from GNOME-Media-Controls, where it has been driving nested shells for a
-while; the screencast-mirror half is left out because this project has no mirror
-window -- '--window' shows you the shell itself.
 """
 
 import os
 import shlex
+import signal
+import subprocess
 import sys
 import time
 
@@ -52,6 +56,12 @@ KEYSYMS = {
     "Page_Up": 0xFF55, "Page_Down": 0xFF56,
     "Super": 0xFFEB, "Super_L": 0xFFEB, "Alt": 0xFFE9, "Alt_L": 0xFFE9,
     "Control": 0xFFE3, "Ctrl": 0xFFE3, "Shift": 0xFFE1,
+    # F1..F12, for a shortcut that takes a function key.
+    **{f"F{n}": 0xFFBD + n for n in range(1, 13)},
+    # What a media remote sends (xkbcommon-keysyms.h).
+    "XF86OK": 0x10081160, "XF86Select": 0x1008FFA0, "XF86Back": 0x1008FF26,
+    "XF86HomePage": 0x1008FF18, "XF86Exit": 0x100810AE,
+    "XF86ChannelUp": 0x10081192, "XF86ChannelDown": 0x10081193,
 }
 
 
@@ -69,9 +79,10 @@ def _keysym(name):
 
 
 class Driver:
-    """One bus connection, one bus name and one input session for a whole batch:
-    a separate process per step would re-acquire the name, re-create the virtual
-    input devices, and pay the first-event workaround on every one.
+    """One bus connection, one bus name and one input session for a whole batch.
+
+    A process per step would re-acquire the name, re-create the virtual input
+    devices and pay the first-event workaround on every one of them.
     """
 
     def __init__(self):
@@ -175,8 +186,9 @@ class Driver:
 
     def ensure_desktop(self):
         """The nested shell boots into the overview, and the hot corner can throw it
-        back there; either way it covers the top bar's pop-ups. Dismiss it -- and only
-        wait for the animation when there was something to dismiss."""
+        back there; either way it covers the desktop, where a shot or a click that
+        did not ask for the overview is aimed. Dismiss it -- and only wait for the
+        animation when there was something to dismiss."""
         if self._overview_wanted():
             return
         if self._overview_active():
@@ -355,6 +367,103 @@ def run_steps(steps):
         driver.close()
 
 
+def cmd_stream(width, height, viewer):
+    """Publish the nested monitor as a PipeWire stream and show it in a viewer.
+
+    Mutter's ScreenCast API hands out a PipeWire node; PipeWire itself is per-user
+    and shared with the real session, so a viewer on the real desktop can play it.
+    The viewer never outlives this process, and this process never outlives the
+    nested shell: when its bus goes away the window is closed, instead of being
+    left frozen on the desktop.
+    """
+    bus = Gio.bus_get_sync(Gio.BusType.SESSION, None)
+    # By default GDBus _exit()s the moment the bus closes, which would orphan the
+    # viewer. Handle the close ourselves.
+    bus.set_exit_on_close(False)
+    sc = Gio.DBusProxy.new_sync(
+        bus, Gio.DBusProxyFlags.NONE, None,
+        "org.gnome.Mutter.ScreenCast", "/org/gnome/Mutter/ScreenCast",
+        "org.gnome.Mutter.ScreenCast", None,
+    )
+    session_path = sc.call_sync(
+        "CreateSession", GLib.Variant("(a{sv})", ({},)),
+        Gio.DBusCallFlags.NONE, 5000, None,
+    ).unpack()[0]
+    sess = Gio.DBusProxy.new_sync(
+        bus, Gio.DBusProxyFlags.NONE, None,
+        "org.gnome.Mutter.ScreenCast", session_path,
+        "org.gnome.Mutter.ScreenCast.Session", None,
+    )
+    # cursor-mode 1 embeds the pointer in the frames, so the watcher sees where
+    # the driver is about to click.
+    stream_path = sess.call_sync(
+        "RecordArea",
+        GLib.Variant("(iiiia{sv})", (0, 0, width, height, {"cursor-mode": GLib.Variant("u", 1)})),
+        Gio.DBusCallFlags.NONE, 5000, None,
+    ).unpack()[0]
+
+    loop = GLib.MainLoop()
+    state = {"node": None}
+
+    def on_signal(_conn, _sender, _path, _iface, name, params):
+        if name == "PipeWireStreamAdded":
+            state["node"] = params.unpack()[0]
+            loop.quit()
+
+    bus.signal_subscribe(
+        "org.gnome.Mutter.ScreenCast", "org.gnome.Mutter.ScreenCast.Stream",
+        "PipeWireStreamAdded", stream_path, None, Gio.DBusSignalFlags.NONE, on_signal,
+    )
+    sess.call_sync("Start", None, Gio.DBusCallFlags.NONE, 5000, None)
+    GLib.timeout_add(5000, lambda: (loop.quit(), False)[1])
+    loop.run()
+    if state["node"] is None:
+        sys.exit("Screencast started but no PipeWire node appeared.")
+
+    print(f"pipewire node {state['node']}", flush=True)
+    argv = [a.replace("{node}", str(state["node"])) for a in viewer]
+    proc = subprocess.Popen(argv)
+
+    # A loop of its own, not `loop` rebound: the five-second guard above is
+    # still pending when the node arrives early, and closes over the name —
+    # it would have quit this loop, and the mirror with it, at five seconds.
+    watching = GLib.MainLoop()
+
+    def finish(*_):
+        watching.quit()
+        return GLib.SOURCE_REMOVE
+
+    def viewer_alive():
+        if proc.poll() is not None:     # the user closed the window
+            watching.quit()
+            return GLib.SOURCE_REMOVE
+        return GLib.SOURCE_CONTINUE
+
+    bus.connect("closed", finish)       # the nested shell went away
+    try:
+        gi.require_version("GLibUnix", "2.0")
+        from gi.repository import GLibUnix
+        signal_add = GLibUnix.signal_add
+    except (ImportError, ValueError):
+        signal_add = GLib.unix_signal_add
+    signal_add(GLib.PRIORITY_DEFAULT, signal.SIGTERM, finish)
+    signal_add(GLib.PRIORITY_DEFAULT, signal.SIGINT, finish)
+    GLib.timeout_add(300, viewer_alive)
+    watching.run()
+
+    if proc.poll() is None:
+        proc.terminate()
+        try:
+            proc.wait(timeout=3)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+    if not bus.is_closed():
+        try:
+            sess.call_sync("Stop", None, Gio.DBusCallFlags.NONE, 2000, None)
+        except GLib.Error:
+            pass
+
+
 def main(argv):
     if not argv:
         sys.exit(__doc__)
@@ -364,6 +473,8 @@ def main(argv):
     elif cmd == "batch" and args:
         steps = [shlex.split(s) for s in args]
         run_steps([s for s in steps if s])
+    elif cmd == "stream" and len(args) >= 3:
+        cmd_stream(int(args[0]), int(args[1]), args[2:])
     else:
         sys.exit(__doc__)
 

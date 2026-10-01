@@ -141,7 +141,8 @@ stored logins and goes online, just as the buttons do.
 ## Development
 
 `make link` installs a link to `src/`, `make reload` loads your edits, `make nested` runs
-the extension in a throwaway GNOME Shell, and `make check` is what CI runs. See
+the extension in a nested GNOME Shell with settings of its own (`make nested-stop` stops
+it), `make shots` retakes the screenshots, and `make check` is what CI runs. See
 [CONTRIBUTING.md](CONTRIBUTING.md), and [CLAUDE.md](CLAUDE.md) for the design: where the
 figures come from, what each file is for, and how to add a provider.
 
@@ -159,5 +160,5 @@ marks are drawn from [Simple Icons](https://simpleicons.org) (CC0-1.0), the Anti
 mark from [Boxicons](https://boxicons.com) (MIT).
 
 The plans, figures and paths in the screenshots are invented: they come from stand-in
-logins and answers in a throwaway shell (`./scripts/dev.sh shots`), not from anyone's
+logins and answers in a nested shell (`./scripts/nested.sh shots`), not from anyone's
 account.

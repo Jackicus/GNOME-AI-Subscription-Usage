@@ -1,0 +1,30 @@
+# The stand-in world 'start --stand-in' (and so 'shots') runs in, because the
+# pictures go into a public repository. Besides what the kit's nested.sh does
+# (a scratch HOME, the system's PATH only, stand-in claude and agy overlaid on
+# /usr/bin as EXT_STAND_IN_BINS names them, so the preferences say "found at
+# /usr/bin/claude" whatever your own PATH holds):
+#
+#   * stand-in logins in that HOME, which are not anyone's: every token is the
+#     word "stand-in";
+#   * scripts/stand-in-http.js staged over lib/http.js in the session's copy of
+#     the extension, so the providers reach no network, never send the token
+#     anywhere, and show invented figures.
+#
+# A provider added without an answer in stand-in-http.js shows as unavailable.
+
+# nested_stand_in HOME STAGE
+nested_stand_in() {
+    local home="$1" stage="$2"
+    cp "$REPO_DIR/scripts/stand-in-http.js" "$stage/lib/http.js"
+
+    mkdir -p "$home/.claude" "$home/.gemini/antigravity-cli"
+    cat > "$home/.claude/.credentials.json" <<'EOF'
+{"claudeAiOauth": {"accessToken": "stand-in", "subscriptionType": "max", "rateLimitTier": "default_claude_max_5x"}}
+EOF
+    cat > "$home/.claude.json" <<'EOF'
+{"oauthAccount": {"organizationRateLimitTier": "default_claude_max_5x"}}
+EOF
+    cat > "$home/.gemini/antigravity-cli/antigravity-oauth-token" <<EOF
+{"token": {"access_token": "stand-in", "expiry": "$(date -u -d '+1 day' +%FT%TZ)"}}
+EOF
+}
