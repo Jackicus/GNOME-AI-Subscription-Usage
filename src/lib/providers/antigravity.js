@@ -21,8 +21,9 @@ import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 import Secret from 'gi://Secret?version=1';
 
-import {Limit, Reading, Status, numberOrNull, severityFor} from '../usage.js';
+import {Limit, Status, numberOrNull, severityFor} from '../usage.js';
 import * as Log from '../log.js';
+import {detect, failureReading, parseTimestamp, readText, reading} from './common.js';
 
 const LOAD_URL = 'https://cloudcode-pa.googleapis.com/v1internal:loadCodeAssist';
 const QUOTA_URL = 'https://cloudcode-pa.googleapis.com/v1internal:retrieveUserQuotaSummary';
@@ -64,7 +65,7 @@ export const AntigravityProvider = {
     },
 
     detect() {
-        return GLib.find_program_in_path(CLI) !== null;
+        return detect(CLI);
     },
 
     // The fallback file only. The keyring cannot be watched this way, so a
@@ -107,14 +108,12 @@ export const AntigravityProvider = {
             if (e instanceof Gio.IOErrorEnum)
                 throw e;
 
-            const status = Number.isFinite(e?.status) ? e.status : 0;
-            if (status === 401 || status === 403) {
-                // The project id is bound to the login, so a rejected token
-                // means the one we remembered may not be ours any more.
+            const failure = failureReading(this, e, auth.plan ?? this._plan);
+            // The project id is bound to the login, so a rejected token
+            // means the one we remembered may not be ours any more.
+            if (failure.status === Status.EXPIRED)
                 this._projectId = null;
-                return this._reading({status: Status.EXPIRED, plan: auth.plan});
-            }
-            return this._reading({status: Status.UNAVAILABLE, plan: auth.plan, message: e.message});
+            return failure;
         }
     },
 
@@ -154,9 +153,7 @@ export const AntigravityProvider = {
     },
 
     _reading({status, plan = null, limits = [], message = null}) {
-        return new Reading({
-            providerId: this.id,
-            displayName: this.displayName,
+        return reading(this, {
             status,
             plan: plan ?? this._plan ?? null,
             limits,
@@ -233,12 +230,6 @@ function tierLabel(tier) {
     return id.replace(/[-_]/g, ' ').replace(/^\w/, c => c.toUpperCase());
 }
 
-function parseTimestamp(value) {
-    if (typeof value !== 'string')
-        return null;
-    return GLib.DateTime.new_from_iso8601(value, null);
-}
-
 // ---- the stored login -------------------------------------------------------
 
 // Keyring first, file second. Read fresh every poll and never kept.
@@ -266,15 +257,8 @@ function lookupKeyring(cancellable) {
 }
 
 function readTokenFile() {
-    try {
-        const [ok, bytes] = AntigravityProvider.credentialsFile().load_contents(null);
-        if (!ok)
-            return null;
-        return parseToken(new TextDecoder().decode(bytes));
-    } catch (e) {
-        Log.debug(`No Antigravity token file to read: ${e.message}`);
-        return null;
-    }
+    const text = readText(AntigravityProvider.credentialsFile(), 'Antigravity token file');
+    return text === null ? null : parseToken(text);
 }
 
 function parseToken(text) {
