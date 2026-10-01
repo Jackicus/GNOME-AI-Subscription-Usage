@@ -249,6 +249,8 @@ print('\n\x1b[1mCodex\x1b[0m — tests/fixtures/codex-usage.json  \x1b[2m(shape 
     check('epoch reset converted', reading.limits[0].resetsAt?.format_iso8601(), '2033-05-18T03:33:20Z');
     check('null secondary window skipped', reading.limits.filter(l => l.scoped).length, 1);
     check('credits balance read', reading.credits?.label, 'Credits · 12 left');
+    check('with no figure to draw a bar from', reading.credits?.percent, null);
+    check('and a null percent grades as normal', drawn(reading).credits.severity, 'normal');
     check('no breakdown for this provider', reading.breakdown.length, 0);
 }
 
@@ -371,6 +373,13 @@ print('\n\x1b[1mHostile shapes\x1b[0m — a wrong number is worse than no number
     check('no absolute reset means no reset shown', codex.limits[0].resetsAt, null);
     check('a recognised window takes the shared id', codex.limits[0].id, 'weekly_all');
     check('no credits means no credits row', codex.credits, null);
+
+    const unlimited = parse(CodexProvider, {
+        rate_limit: {primary_window: {used_percent: 1, limit_window_seconds: 18000, reset_at: 2000000000}},
+        credits: {has_credits: true, unlimited: true},
+    }, {});
+    check('unlimited credits read', unlimited.credits?.label, 'Credits · unlimited');
+    check('and drawn without a bar', unlimited.credits?.percent, null);
 
     const ids = parse(CodexProvider, {
         rate_limit: {primary_window: {used_percent: 1, limit_window_seconds: 18000, reset_at: 2000000000}},
