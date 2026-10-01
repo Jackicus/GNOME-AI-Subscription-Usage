@@ -73,7 +73,12 @@ print('\x1b[1mClaude\x1b[0m — tests/fixtures/claude-usage.json');
     check('reset time parsed', reading.limits[0].resetsAt?.format_iso8601(), '2026-09-30T18:10:00Z');
     check('breakdown rows kept', reading.breakdown.length, 1);
     check('breakdown label', reading.breakdown[0].label, 'Claude Code');
-    check('credits absent when not enabled', reading.credits, null);
+    // Switched off is shown as off, not left out: a preferences switch that
+    // is on and draws nothing reads as broken. No figure, because the service
+    // sends none -- only what has been spent.
+    check('credits shown as off when not enabled', reading.credits?.label, 'Extra usage · off');
+    check('with no figure to draw a bar from', reading.credits?.percent, null);
+    check('and what has been spent', reading.credits?.detail, '0.00 USD used');
     check('worst limit is the highest', formatPercent(reading.worst.percent), '97%');
 }
 
@@ -364,6 +369,9 @@ print('\n\x1b[1mHostile shapes\x1b[0m — a wrong number is worse than no number
         spend: {used: {amount_minor: 0, currency: 'USD', exponent: 2}},
     }, {});
     check('no credits figure means no credits row', noFigure.credits, null);
+
+    const noExtra = parse(ClaudeProvider, {limits: [{kind: 'session', percent: 5}]}, {});
+    check('no extra_usage at all means no credits row', noExtra.credits, null);
 
     const anti = AntigravityProvider._parse({
         groups: [{displayName: 'Gemini Models', buckets: [

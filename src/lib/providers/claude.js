@@ -26,7 +26,7 @@
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 
-import {Limit, Reading, Status, numberOrNull, severityFor} from '../usage.js';
+import {Limit, Reading, Severity, Status, numberOrNull, severityFor} from '../usage.js';
 import * as Log from '../log.js';
 
 const USAGE_URL = 'https://api.anthropic.com/api/oauth/usage';
@@ -239,12 +239,26 @@ function breakdownFrom(body) {
         .map(row => ({label: row.display_name, percent: Number(row.percent)}));
 }
 
-// Paid-for usage past the plan's limits. Absent for most accounts, and silent
-// when the user has not turned it on.
+// Paid-for usage past the plan's limits. Absent for most accounts.
 function creditsFrom(body, thresholds) {
     const extra = body?.extra_usage;
-    if (!extra?.is_enabled)
+    if (!extra || typeof extra !== 'object')
         return null;
+
+    // Turned off is still a reading, and saying so beats a switch in the
+    // preferences that is on and draws nothing. It is all that can be said,
+    // though: switched off, the service sends no balance and no limit, so
+    // there is no bar and no figure -- only "off" and what has been spent.
+    // `percent: null` is what tells the renderer to draw it that way.
+    if (!extra.is_enabled) {
+        const spent = money(body?.spend?.used);
+        return {
+            percent: null,
+            severity: Severity.NORMAL,
+            label: 'Extra usage · off',
+            detail: spent ? `${spent} used` : null,
+        };
+    }
 
     // The figure and its severity must come from the same place, or a 0% bar
     // ends up coloured as a warning. spend.percent is the partner of

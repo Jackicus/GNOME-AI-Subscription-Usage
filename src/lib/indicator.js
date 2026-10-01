@@ -297,7 +297,9 @@ class UsageIndicator extends PanelMenu.Button {
         for (const limit of reading.limits)
             this._section.addMenuItem(limitItem(limit, this._resetFormat));
 
-        if (reading.credits)
+        if (reading.credits?.percent === null)
+            this._section.addMenuItem(statusItem(reading.credits.label, reading.credits.detail));
+        else if (reading.credits)
             this._section.addMenuItem(limitItem({
                 label: reading.credits.label,
                 percent: reading.credits.percent,
@@ -510,6 +512,37 @@ function limitItem(limit, resetFormat) {
     column.add_child(new UsageBar(limit.percent / 100, limit.severity));
 
     item.add_child(column);
+    return item;
+}
+
+// A row with a name and nothing to measure -- extra usage that is switched
+// off. Laid out as a limit row's top line, so the name lines up with the names
+// above it and the detail sits where a reset time would, but with no figure
+// and no bar: an empty bar would claim a 0% that the service never said.
+function statusItem(text, detail) {
+    const item = inertItem('ai-usage-limit');
+    const top = new St.BoxLayout({style_class: 'ai-usage-limit-row', x_expand: true});
+    const name = new St.Label({
+        text,
+        style_class: 'ai-usage-limit-label',
+        x_expand: true,
+        y_align: Clutter.ActorAlign.CENTER,
+    });
+    name.clutter_text.ellipsize = Pango.EllipsizeMode.END;
+    top.add_child(name);
+
+    if (detail) {
+        const label = new St.Label({
+            text: detail,
+            style_class: 'ai-usage-limit-reset',
+            x_align: Clutter.ActorAlign.END,
+            y_align: Clutter.ActorAlign.CENTER,
+        });
+        label.opacity = DIM_OPACITY;
+        top.add_child(label);
+    }
+
+    item.add_child(top);
     return item;
 }
 
