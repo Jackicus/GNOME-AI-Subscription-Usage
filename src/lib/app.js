@@ -225,21 +225,15 @@ export class AiUsageApp {
 
     _watchSettings() {
         const relayout = ['panel-box', 'panel-index'];
-        const reread = ['warn-percent', 'critical-percent'];
 
-        for (const key of [...relayout, ...reread, 'primary-limit', 'show-percent', 'reset-format', 'poll-seconds', 'notify-percent']) {
+        for (const key of [...relayout, 'warn-percent', 'critical-percent', 'primary-limit', 'show-percent', 'reset-format', 'poll-seconds', 'notify-percent']) {
             this._settingsIds.push(this._settings.connect(`changed::${key}`, () => {
                 this._applySettings();
                 if (relayout.includes(key))
                     this._placeButtons();
                 if (key === 'poll-seconds')
                     this._schedule();
-                // A changed threshold changes the severity of figures already
-                // on screen, so the numbers have to be run through again.
-                if (reread.includes(key))
-                    this.refresh();
-                else
-                    this._redraw();
+                this._redraw();
             }));
         }
     }
@@ -410,7 +404,7 @@ export class AiUsageApp {
         // not hold up the rest.
         const readings = await Promise.all(this._entries.map(async ({provider}) => {
             try {
-                const reading = await provider.read(this._http, cancellable, this._thresholds);
+                const reading = await provider.read(this._http, cancellable);
                 reading.cli = provider.cliName ?? provider.cli;
                 return reading;
             } catch (e) {
@@ -444,7 +438,7 @@ export class AiUsageApp {
         for (const {provider, options} of this._entries) {
             const reading = byId.get(provider.id);
             this._buttons.get(provider.id)?.indicator.setReading(
-                reading ? applyOptions(reading, options) : null);
+                reading ? applyOptions(reading, options, this._thresholds) : null);
         }
     }
 

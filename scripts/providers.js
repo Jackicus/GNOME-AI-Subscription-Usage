@@ -10,12 +10,18 @@ import GLib from 'gi://GLib';
 
 import {Http} from '../src/lib/http.js';
 import {allProviders} from '../src/lib/providers/registry.js';
+import {applyOptions} from '../src/lib/settings.js';
 import {Status, formatPercent, formatReset} from '../src/lib/usage.js';
 import * as Log from '../src/lib/log.js';
 
 const BOLD = '\x1b[1m';
 const DIM = '\x1b[2m';
 const OFF = '\x1b[0m';
+
+// Every row shown, coloured at the schema's default thresholds -- the same
+// pass the button's own figures go through before they are drawn.
+const EVERYTHING = {showPerModel: true, showBreakdown: true, showCredits: true};
+const THRESHOLDS = {warn: 80, critical: 95};
 
 const EXPLANATION = {
     [Status.SIGNED_OUT]: 'no stored login found -- sign in with its command-line tool',
@@ -38,7 +44,7 @@ async function report(http, provider) {
     }
     print(`  cli:      ${GLib.find_program_in_path(provider.cli)}`);
 
-    const reading = await provider.read(http);
+    const reading = applyOptions(await provider.read(http), EVERYTHING, THRESHOLDS);
     print(`  plan:     ${reading.plan ?? '(unknown)'}`);
 
     if (!reading.ok) {

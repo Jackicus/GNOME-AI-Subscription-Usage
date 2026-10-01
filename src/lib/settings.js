@@ -4,10 +4,13 @@
 // /org/gnome/shell/extensions/ai-usage/providers/<id>/, so adding a provider
 // needs no schema change at all.
 //
-// This module imports nothing but Gio on purpose: prefs.js runs in its own
-// process, without the shell's imports, and has to be able to load it.
+// This module imports nothing but Gio and usage.js on purpose: prefs.js runs
+// in its own process, without the shell's imports, and has to be able to load
+// it.
 
 import Gio from 'gi://Gio';
+
+import {severityFor} from './usage.js';
 
 const PROVIDER_SCHEMA = 'org.gnome.shell.extensions.ai-usage.provider';
 const PROVIDER_PATH = '/org/gnome/shell/extensions/ai-usage/providers';
@@ -64,23 +67,25 @@ export function keysFor(provider) {
     return PROVIDER_KEYS.filter(k => provider.capabilities?.[k.capability]);
 }
 
-// The display switches, applied in one place so that neither the provider
-// modules nor the renderer read settings themselves.
+// The display switches and the colour thresholds, applied in one place so
+// that neither the provider modules nor the renderer read settings themselves.
+// A provider hands back each limit with only the severity the service itself
+// reported; the user's thresholds are laid over it here, so moving one is a
+// redraw and not a request.
 //
 // This returns a *view* -- a shallow copy sharing the prototype, so the getters
 // still work -- and never touches the Reading it was given. Filtering in place
 // would throw the hidden rows away, and turning a switch back on would then
 // show nothing until the next poll happened to come round.
-export function applyOptions(reading, options) {
-    if (!options)
-        return reading;
+export function applyOptions(reading, options, thresholds) {
+    const graded = row => ({...row, severity: severityFor(row.percent, thresholds, row.severity)});
 
     const view = Object.assign(Object.create(Object.getPrototypeOf(reading)), reading);
-    view.limits = options.showPerModel
-        ? reading.limits
-        : reading.limits.filter(limit => !limit.scoped);
+    view.limits = reading.limits
+        .filter(limit => options.showPerModel || !limit.scoped)
+        .map(graded);
     view.breakdown = options.showBreakdown ? reading.breakdown : [];
-    view.credits = options.showCredits ? reading.credits : null;
+    view.credits = options.showCredits && reading.credits ? graded(reading.credits) : null;
     return view;
 }
 

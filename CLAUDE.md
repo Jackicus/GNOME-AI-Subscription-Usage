@@ -203,7 +203,10 @@ switches it can honour — a provider with no per-model limits is never offered 
 per-model switch. The switches are applied in **one place**, `applyOptions()` in
 `settings.js`: providers always return everything they know, and the renderer
 reads no settings at all. Turning a row off therefore costs no request —
-`_redraw()` re-applies the switches to figures already in hand.
+`_redraw()` re-applies the switches to figures already in hand. The colour
+thresholds go the same way: a provider keeps only the severity the service
+itself reported, and `applyOptions()` lays `warn-percent`/`critical-percent`
+over it, so moving one recolours the figures without asking for them again.
 
 ### The two panel modes
 

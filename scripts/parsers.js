@@ -20,6 +20,7 @@ import {CodexProvider} from '../src/lib/providers/codex.js';
 import {ResetFormat, Status, formatBreakdown, formatPercent, formatReset} from '../src/lib/usage.js';
 
 const THRESHOLDS = {warn: 80, critical: 95};
+const EVERYTHING = {showPerModel: true, showBreakdown: true, showCredits: true};
 
 const RED = '\x1b[1;31m';
 const GREEN = '\x1b[1;32m';
@@ -47,7 +48,13 @@ function fixture(name) {
 // The parsers take the credentials only for the plan label, so a stub is enough
 // -- no token is needed to parse a response that has already arrived.
 function parse(provider, body, auth) {
-    return provider._parse(body, auth, THRESHOLDS);
+    return provider._parse(body, auth);
+}
+
+// Severity is decided at draw time, against the user's thresholds, so it is
+// checked on what applyOptions() hands the renderer and not on the parse.
+function drawn(reading, thresholds = THRESHOLDS) {
+    return applyOptions(reading, EVERYTHING, thresholds);
 }
 
 print('\x1b[1mClaude\x1b[0m — tests/fixtures/claude-usage.json');
@@ -60,8 +67,8 @@ print('\x1b[1mClaude\x1b[0m — tests/fixtures/claude-usage.json');
     check('limits found', reading.limits.length, 3);
     check('ordered session first', reading.limits[0].id, 'session');
     check('session percent', formatPercent(reading.limits[0].percent), '50%');
-    check('severity from the response (warning)', reading.limits[1].severity, 'warning');
-    check('severity from the response (critical)', reading.limits[2].severity, 'critical');
+    check('severity from the response (warning)', drawn(reading).limits[1].severity, 'warning');
+    check('severity from the response (critical)', drawn(reading).limits[2].severity, 'critical');
     // Claude Code's own words for these rows, so the pop-up and the terminal
     // name the same limit the same way (issue #20).
     check('session row takes Claude Code\'s words', reading.limits[0].label, '5-hour limit');
@@ -235,7 +242,7 @@ print('\n\x1b[1mCodex\x1b[0m — tests/fixtures/codex-usage.json  \x1b[2m(shape 
     check('5h window named from its length', reading.limits[0].label, 'Current session');
     check('7d window named from its length', reading.limits[1].label, 'This week');
     check('primary percent', formatPercent(reading.limits[0].percent), '50%');
-    check('severity derived from percent', reading.limits[1].severity, 'warning');
+    check('severity derived from percent', drawn(reading).limits[1].severity, 'warning');
     check('per-model row labelled by model', reading.limits[2].label, 'Current session · gpt-5-codex');
     check('per-model row is marked scoped', reading.limits[2].scoped, true);
     check('whole-account row is not scoped', reading.limits[0].scoped, false);
@@ -248,7 +255,7 @@ print('\n\x1b[1mCodex\x1b[0m — tests/fixtures/codex-usage.json  \x1b[2m(shape 
 print('\n\x1b[1mAntigravity\x1b[0m — tests/fixtures/antigravity-quota.json  \x1b[2m(real, plus a synthetic 5h bucket)\x1b[0m');
 {
     AntigravityProvider._plan = 'Free tier';
-    const reading = AntigravityProvider._parse(fixture('antigravity-quota.json'), THRESHOLDS);
+    const reading = AntigravityProvider._parse(fixture('antigravity-quota.json'));
 
     check('status', reading.status, Status.OK);
     check('buckets found', reading.limits.length, 3);
@@ -268,8 +275,8 @@ print('\n\x1b[1mAntigravity\x1b[0m — tests/fixtures/antigravity-quota.json  \x
     // The bucket's own displayName is "Weekly Limit Remaining", which over a
     // used-figure would be a plain lie. It must not reach the label.
     check('the response label is NOT reused', reading.limits[1].label.includes('Remaining'), false);
-    check('an exhausted bucket is critical', reading.limits[1].severity, 'critical');
-    check('an untouched bucket is normal', reading.limits[2].severity, 'normal');
+    check('an exhausted bucket is critical', drawn(reading).limits[1].severity, 'critical');
+    check('an untouched bucket is normal', drawn(reading).limits[2].severity, 'normal');
     check('reset time parsed', reading.limits[1].resetsAt?.format_iso8601(), '2026-10-05T20:12:05Z');
     check('nothing is marked per-model', reading.limits.filter(l => l.scoped).length, 0);
 }
@@ -280,19 +287,24 @@ print('\n\x1b[1mDisplay switches\x1b[0m — hiding a row must not throw it away'
 {
     const full = parse(ClaudeProvider, fixture('claude-usage.json'),
         {rateLimitTier: 'default_claude_max_5x'});
-    const everything = {showPerModel: true, showBreakdown: true, showCredits: true};
-    const hidden = applyOptions(full, {...everything, showPerModel: false, showBreakdown: false});
+    const hidden = applyOptions(full, {...EVERYTHING, showPerModel: false, showBreakdown: false}, THRESHOLDS);
 
     check('per-model rows hidden in the view', hidden.limits.length, 2);
     check('breakdown hidden in the view', hidden.breakdown.length, 0);
     check('the reading itself is untouched', full.limits.length, 3);
     check('its breakdown is untouched', full.breakdown.length, 1);
 
-    const restored = applyOptions(full, everything);
+    const restored = drawn(full);
     check('turning it back on restores the rows', restored.limits.length, 3);
     check('and the breakdown', restored.breakdown.length, 1);
     check('the view keeps its getters', restored.ok, true);
     check('and its computed properties', formatPercent(restored.worst.percent), '97%');
+
+    // Moving a threshold recolours the figures already in hand: the session
+    // is 50% and the service calls it normal, so only the user's own line can
+    // make it a warning -- and it must, without the response being read again.
+    check('a lower threshold recolours at once', drawn(full, {warn: 40, critical: 60}).limits[0].severity, 'warning');
+    check('without touching the reading', drawn(full).limits[0].severity, 'normal');
 }
 
 // The shapes that caused real bugs. Number(null) is 0, so a null percentage
@@ -322,7 +334,7 @@ print('\n\x1b[1mHostile shapes\x1b[0m — a wrong number is worse than no number
     // percent fell back to 0 while the severity came from spend, giving an
     // empty bar painted as a warning.
     check('credits take the figure beside their severity', formatPercent(credits.credits.percent), '30%');
-    check('and the service severity is still honoured', credits.credits.severity, 'warning');
+    check('and the service severity is still honoured', drawn(credits).credits.severity, 'warning');
 
     const noFigure = parse(ClaudeProvider, {
         limits: [{kind: 'session', percent: 5}],
@@ -339,7 +351,7 @@ print('\n\x1b[1mHostile shapes\x1b[0m — a wrong number is worse than no number
             {bucketId: 'gemini-weekly', window: 'weekly', remainingFraction: null},
             {bucketId: 'gemini-5h', window: '5h', remainingFraction: 0},
         ]}],
-    }, THRESHOLDS);
+    });
     check('antigravity drops a null fraction', anti.limits.length, 1);
     check('rather than reading it as fully spent', anti.limits.every(l => l.percent !== 100 || l.id === 'gemini-5h'), true);
 
@@ -374,12 +386,8 @@ print('\n\x1b[1mBoth\x1b[0m — a response in a shape they do not know');
 for (const provider of [ClaudeProvider, CodexProvider, AntigravityProvider]) {
     let threw = null;
     try {
-        // Antigravity's parser takes no credentials; the others ignore the
-        // second argument when the body is unusable.
-        if (provider === AntigravityProvider)
-            provider._parse({nonsense: true}, THRESHOLDS);
-        else
-            parse(provider, {nonsense: true}, {});
+        // Antigravity's parser takes no credentials, and ignores the stub.
+        parse(provider, {nonsense: true}, {});
     } catch (e) {
         threw = e;
     }
