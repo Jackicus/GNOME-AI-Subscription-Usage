@@ -16,8 +16,5 @@ export function warn(message) {
 }
 
 export function error(message, e) {
-    if (e)
-        console.error(`[AI Usage] ${message}:`, e);
-    else
-        console.error(`[AI Usage] ${message}`);
+    console.error(`[AI Usage] ${message}:`, e);
 }

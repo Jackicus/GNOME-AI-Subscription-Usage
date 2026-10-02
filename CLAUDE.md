@@ -120,7 +120,8 @@ None.
 
   CI adds `libsecret` (`.github/ci-packages`): `antigravity.js` imports
   `gi://Secret`, and the imports and parsers checks load it. It ends with `size`:
-  src/ JavaScript against `EXT_BUDGET_LINES` (2900, today's size, provisional).
+  src/ JavaScript against `EXT_BUDGET_LINES` (1900: the size after the simplify
+  pass of 2026-10-02, 1806 lines, rounded up to the next hundred).
 * `make providers` — the real provider modules under plain `gjs`, printing what
   each button would show. Tells a data problem from a drawing problem. It reads
   the real stored logins and goes to the network: ask first.
