@@ -222,6 +222,9 @@ print('\n\x1b[1mReset times\x1b[0m — the four reset-format values, against a f
     // A day name on something happening this afternoon reads as another day.
     check('no day name when it is today', say(soon, ResetFormat.ABSOLUTE), 'Resets 3:00 PM');
     check('a day name when it is not', say(far, ResetFormat.ABSOLUTE), 'Resets Tue 2:00 PM');
+    check('and the date past the next six days',
+        say(at('2026-10-07T13:00:00+00:00'), ResetFormat.ABSOLUTE), 'Resets Wed 7 Oct 1:00 PM');
+    check('a month away', say(at('2026-11-01T15:24:00+00:00'), ResetFormat.AUTO, '24h'), 'Resets Sun 1 Nov 15:24');
 
     // The desktop's own 12/24-hour setting, never a hardcoded one.
     check('a 24-hour desktop', say(far, ResetFormat.ABSOLUTE, '24h'), 'Resets Tue 14:00');
