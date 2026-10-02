@@ -15,6 +15,9 @@ const DIM_OPACITY = 160;
 
 const ICON_SIZE = 16;
 
+// primary-limit -> the limit id it asks for; anything else shows the worst.
+const PRIMARY_LIMIT = {session: 'session', weekly: 'weekly_all'};
+
 const SEVERITY_CLASS = {
     [Severity.NORMAL]: 'ai-usage-normal',
     [Severity.WARNING]: 'ai-usage-warning',
@@ -40,7 +43,7 @@ function explain(reading) {
 
 export const UsageIndicator = GObject.registerClass(
 class UsageIndicator extends PanelMenu.Button {
-    _init(iconFile, name) {
+    _init(iconFile, name, actions) {
         super._init(0.5, `${name} usage`, false);
 
         this.add_style_class_name('ai-usage-panel-button');
@@ -61,60 +64,43 @@ class UsageIndicator extends PanelMenu.Button {
         this._box.add_child(this._label);
         this.add_child(this._box);
 
-        this._reading = null;
-        this._showPercent = true;
-        this._pick = null;      // (reading) => Limit
-        this._resetFormat = null;
-        this._clock = null;     // '12h' or '24h'
-
         this._name = name;
-        this._actions = [];
+        this._actions = actions;
 
         this._section = new PopupMenu.PopupMenuSection();
         this.menu.addMenuItem(this._section);
     }
 
-    // Stored, not drawn: the caller hands over a reading next.
-    configure({showPercent, pick, resetFormat, clock}) {
-        this._showPercent = showPercent;
-        this._pick = pick;
-        this._resetFormat = resetFormat;
-        this._clock = clock;
+    // reading is null until the provider has answered. options: showPercent,
+    // limit (primary-limit), resetFormat, clock ('12h' or '24h').
+    setReading(reading, options) {
+        this._renderPanel(reading, options.showPercent, options.limit);
+        this._renderMenu(reading, options);
     }
 
-    // null until the provider has answered.
-    setReading(reading) {
-        this._reading = reading;
-        this._renderPanel();
-        this._renderMenu();
-    }
-
-    _renderPanel() {
-        const reading = this._reading;
+    _renderPanel(reading, showPercent, limit) {
         if (!reading) {
             this._label.set_text('…');
-            this._showFigure(true);
+            this._label.visible = showPercent;
             this._setPanelSeverity(Severity.NORMAL);
             return;
         }
 
-        const shown = reading.ok ? this._pick(reading) : null;
+        const shown = reading.ok
+            ? reading.limits.find(l => l.id === PRIMARY_LIMIT[limit]) ?? reading.worst
+            : null;
         // No figure: amber when the fix is the user's (signing in again).
         if (!shown) {
             this._label.set_text('');
-            this._showFigure(false);
+            this._label.visible = false;
             const broken = reading.status === Status.EXPIRED || reading.status === Status.SIGNED_OUT;
             this._setPanelSeverity(broken ? Severity.WARNING : Severity.NORMAL);
             return;
         }
 
         this._label.set_text(formatPercent(shown.percent));
-        this._showFigure(true);
+        this._label.visible = showPercent;
         this._setPanelSeverity(shown.severity);
-    }
-
-    _showFigure(hasFigure) {
-        this._label.visible = hasFigure && this._showPercent;
     }
 
     _setPanelSeverity(severity) {
@@ -123,21 +109,21 @@ class UsageIndicator extends PanelMenu.Button {
         this._box.add_style_class_name(SEVERITY_CLASS[severity]);
     }
 
-    _renderMenu() {
+    _renderMenu(reading, options) {
         this._section.removeAll();
 
         // With nothing read yet the header still carries the actions.
-        if (!this._reading) {
+        if (!reading) {
             this._section.addMenuItem(headerItem(this._name, null, this._actions));
             this._section.addMenuItem(captionItem('Reading usage…'));
         } else {
-            this._addReading(this._reading);
+            this._addReading(reading, options);
         }
         // St has no :last-child; the stylesheet pads the marked row.
         this._section.box.get_children().at(-1).add_style_class_name('ai-usage-last');
     }
 
-    _addReading(reading) {
+    _addReading(reading, {resetFormat, clock}) {
         this._section.addMenuItem(headerItem(reading.displayName, reading.plan, this._actions));
 
         if (!reading.ok) {
@@ -146,19 +132,14 @@ class UsageIndicator extends PanelMenu.Button {
         }
 
         for (const limit of reading.limits)
-            this._section.addMenuItem(limitItem(limit, this._resetFormat, this._clock));
+            this._section.addMenuItem(limitItem(limit, resetFormat, clock));
 
         if (reading.credits)
-            this._section.addMenuItem(limitItem(reading.credits, this._resetFormat, this._clock));
+            this._section.addMenuItem(limitItem(reading.credits, resetFormat, clock));
 
         const breakdown = formatBreakdown(reading.breakdown);
         if (breakdown)
             this._section.addMenuItem(captionItem(breakdown));
-    }
-
-    // Drawn at the right of the header by the next setReading().
-    setActions(items) {
-        this._actions = items;
     }
 });
 
