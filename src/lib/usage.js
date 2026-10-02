@@ -124,7 +124,8 @@ function howLong(minutes) {
     return plural(Math.round(hours / 24), 'day');
 }
 
-// "Tue 3:00 PM", or "3:00 PM" when the reset is later today.
+// "Tue 3:00 PM", "3:00 PM" when the reset is later today, and the date as well
+// past the next six days, where a day name alone would read as this week's.
 function wallClockAt(resetsAt, now, clock, timezone) {
     const local = timezone ? resetsAt.to_timezone(timezone) : resetsAt.to_local();
     const here = timezone ? now.to_timezone(timezone) : now.to_local();
@@ -134,7 +135,10 @@ function wallClockAt(resetsAt, now, clock, timezone) {
 
     const today = local.get_year() === here.get_year() &&
         local.get_day_of_year() === here.get_day_of_year();
-    return today ? time : `${local.format('%a')} ${time}`;
+    if (today)
+        return time;
+    const thisWeek = local.format('%Y%j') <= here.add_days(6).format('%Y%j');
+    return `${local.format(thisWeek ? '%a' : '%a %-d %b')} ${time}`;
 }
 
 function plural(n, unit) {
