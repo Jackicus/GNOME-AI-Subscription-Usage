@@ -4,9 +4,10 @@ Shows how much of your AI subscriptions' rate limits you have used, as a button 
 top bar: the current session, the week, and the week for each model, with the time each
 one resets.
 
-![The pop-up for Claude on a Max (5x) plan, open under its top-bar button reading 12%:
-the 5-hour limit at 12%, resetting in 2 hr 22 min; the week across all models at 34% and
-the week for Opus at 41%, both resetting Mon 15:00, each with a bar; "Extra usage · off"
+![The pop-up for Claude on a Max (5x) plan, open under its top-bar button reading 12%,
+beside Codex's at 23% and Antigravity's at 40%: the 5-hour limit at 12%, resetting in
+2 hr 21 min; the week across all models at 34% and the week for Opus at 41%, both
+resetting Tue 15:00, each with a bar; "Extra usage · off"
 with 0.00 USD used; and "Where this week went: Claude Code 88% · Chats 12%". The header
 has a refresh button and an arrow to the preferences.](docs/screenshots/pop-up.png)
 
@@ -28,8 +29,8 @@ has a refresh button and an arrow to the preferences.](docs/screenshots/pop-up.p
 - **Your choice of figure and place**: the session, the week or whichever is highest, at
   the left, centre or right of the top bar.
 
-![Two buttons at the right of the top bar: Claude's light bulb reading 12% and
-Antigravity's pencil reading 40%.](docs/screenshots/top-bar-cropped.png)
+![Three buttons at the right of the top bar: Claude's light bulb reading 12%, Codex's
+terminal reading 23% and Antigravity's pencil reading 40%.](docs/screenshots/top-bar-cropped.png)
 
 ## You never sign in here
 
@@ -101,7 +102,7 @@ To update, `git pull && make install`, then log out and back in. To remove it,
 
 | Buttons | Readings | Providers |
 | --- | --- | --- |
-| ![The Buttons page: which figure each button carries, set to Current session; a switch for showing the percentage; how reset times are worded; and the start of where the buttons sit.](docs/screenshots/preferences-buttons.png) | ![The Readings page: 300 seconds between readings, and Notify at 0, which turns notifications off.](docs/screenshots/preferences-readings.png) | ![The Providers page: Claude Code found at /usr/bin/claude, the Codex CLI not installed so Codex is left out, and the Antigravity CLI (agy) found at /usr/bin/agy, each with its button's icon and a switch.](docs/screenshots/preferences-providers.png) |
+| ![The Buttons page: which figure each button carries, set to Current session; a switch for showing the percentage; how reset times are worded; and the start of where the buttons sit.](docs/screenshots/preferences-buttons.png) | ![The Readings page: 300 seconds between readings, and Notify at 0, which turns notifications off.](docs/screenshots/preferences-readings.png) | ![The Providers page: Claude Code found at /usr/bin/claude, the Codex CLI found at /usr/bin/codex, and the Antigravity CLI (agy) found at /usr/bin/agy, each with its button's icon and a switch.](docs/screenshots/preferences-providers.png) |
 
 - **Buttons**: the figure each button carries, whether the percentage is shown beside the
   icon, how reset times are worded, which end of the top bar the buttons sit in and

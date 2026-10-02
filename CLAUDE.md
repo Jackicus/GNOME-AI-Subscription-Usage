@@ -142,7 +142,7 @@ extension's own:
   without that, `start --stand-in`. No `PATH` hides the CLIs: Codex's is in
   `/usr/bin`, which every start needs.
 * **`start --stand-in`** is a stand-in world (`./scripts/nested.d/stand-in.sh`):
-  stand-in `claude` and `agy` overlaid on `/usr/bin` (`EXT_STAND_IN_BINS`), a
+  stand-in `claude`, `codex` and `agy` overlaid on `/usr/bin` (`EXT_STAND_IN_BINS`), a
   scratch `HOME` with stand-in logins, and the staged copy's `lib/http.js`
   replaced by `./scripts/stand-in-http.js`, which answers with invented figures.
   No real path, login, account or network reaches it; a provider added without
