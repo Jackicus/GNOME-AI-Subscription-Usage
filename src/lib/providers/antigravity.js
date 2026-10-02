@@ -18,15 +18,6 @@ const CLI = 'agy';
 // The service answers 403 to a user agent not starting "antigravity".
 const USER_AGENT = 'antigravity/cli (gnome-shell-extension-ai-usage)';
 
-// go-keyring's item: the generic schema, matched on its attributes only.
-const KEYRING_SCHEMA = new Secret.Schema(
-    'org.freedesktop.Secret.Generic',
-    Secret.SchemaFlags.DONT_MATCH_NAME,
-    {
-        service: Secret.SchemaAttributeType.STRING,
-        username: Secret.SchemaAttributeType.STRING,
-    });
-
 const KEYRING_ATTRIBUTES = {service: 'gemini', username: 'antigravity'};
 
 export const AntigravityProvider = {
@@ -201,7 +192,12 @@ async function readCredentials(cancellable) {
 
 function lookupKeyring(cancellable) {
     return new Promise(resolve => {
-        Secret.password_lookup(KEYRING_SCHEMA, KEYRING_ATTRIBUTES, cancellable, (_o, result) => {
+        // go-keyring's item: the generic schema, matched on its attributes only.
+        const schema = new Secret.Schema('org.freedesktop.Secret.Generic', Secret.SchemaFlags.DONT_MATCH_NAME, {
+            service: Secret.SchemaAttributeType.STRING,
+            username: Secret.SchemaAttributeType.STRING,
+        });
+        Secret.password_lookup(schema, KEYRING_ATTRIBUTES, cancellable, (_o, result) => {
             let secret = null;
             try {
                 secret = Secret.password_lookup_finish(result);
