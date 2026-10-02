@@ -32,7 +32,8 @@ src/prefs.js            preferences (own process); every row binds to a key
 src/stylesheet.css      sizes taken from the shell's own theme; why, beside
                         each rule
 src/schemas/            global schema + relocatable per-provider schema
-src/icons/              the fallback gauge and one symbolic icon per provider
+src/icons/              the gauge, every button's fallback (no company's mark
+                        ships: README, Credits and trademarks)
 src/lib/app.js          when to read, which buttons exist and where they sit,
                         notifications, the desktop clock-format setting
 src/lib/indicator.js    one panel button and its pop-up; draws the Reading it
@@ -61,11 +62,13 @@ log on (`lib/log.js`'s `setVerbose`) and names its stage after a checksum of
 ## How it behaves
 
 * **One button per live provider** (`enabled` and its CLI on `PATH`), always:
-  a percentage must sit beside an icon naming its subscription. `_syncButtons()`
+  a percentage must sit beside an icon telling its subscription apart. `_syncButtons()`
   diffs against the live list, so toggling needs no restart. Role
   `${uuid}-${providerId}`; placed in `panel-box` from `panel-index`, in registry
-  order. The icon (`icons/<provider.icon>.svg`, else `ai-usage-symbolic.svg`) is
-  always drawn at 16px; `show-percent` only hides the figure.
+  order. The icon is the provider's `icon`, a stock Adwaita symbolic (the
+  marks need their owners' written permission), with the gauge as `fallback_gicon`
+  under a theme that lacks it; always 16px, and `show-percent` only hides the
+  figure. The preferences show it beside the provider's name.
 * Destroying an indicator releases its role, so a provider toggles without a
   restart, and `_placeButtons()` places every button through `addToStatusArea`,
   building afresh one that was already placed (a move, a provider switched on).
@@ -116,10 +119,12 @@ None.
     unknown shapes degrade rather than throw. For Codex this is all there is.
   * `imports`: walks everything `prefs.js` reaches, fails on St, Clutter, Meta,
     Shell, Soup or `resource:///org/gnome/shell/`, then loads the shared modules.
-  * `assets`: every shipped icon loads through gdk-pixbuf; every named icon exists.
+  * `assets`: every shipped icon loads through gdk-pixbuf; each provider names a
+    distinct icon that Adwaita ships.
 
   CI adds `libsecret` (`.github/ci-packages`): `antigravity.js` imports
-  `gi://Secret`, and the imports and parsers checks load it. It ends with `size`:
+  `gi://Secret`, and the imports and parsers checks load it; and
+  `adwaita-icon-theme`, for `assets`. It ends with `size`:
   src/ JavaScript against `EXT_BUDGET_LINES` (1900: the size after the simplify
   pass of 2026-10-02, 1806 lines, rounded up to the next hundred).
 * `make providers` — the real provider modules under plain `gjs`, printing what

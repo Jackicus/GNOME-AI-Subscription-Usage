@@ -129,6 +129,8 @@ export default class AiUsagePreferences extends ExtensionPreferences {
                 ? `${tool} found at ${path}`
                 : `${tool} is not installed — this provider is left out`,
         });
+        // The button's icon is a generic one, so this is where it is matched to a name.
+        row.add_prefix(new Gtk.Image({icon_name: provider.icon}));
 
         const settings = providerSettings(this.dir, provider.id);
 

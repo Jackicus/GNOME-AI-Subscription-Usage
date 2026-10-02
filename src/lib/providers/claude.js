@@ -27,7 +27,7 @@ export const ClaudeProvider = {
     displayName: 'Claude',
     cli: 'claude',
     cliName: 'Claude Code',
-    icon: 'claude-symbolic',
+    icon: 'emoji-objects-symbolic',
 
     capabilities: {
         perModel: true,     // weekly_scoped rows, one per model

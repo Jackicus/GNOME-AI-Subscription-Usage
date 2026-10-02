@@ -1,5 +1,5 @@
 // Checks that every icon this extension ships can actually be loaded as one,
-// and that every icon a provider asks for is there.
+// and that every icon a provider asks for is a stock one GNOME ships.
 // `./scripts/dev.sh assets`, and `make check`.
 //
 // This exists because of a bug that survived from the first commit to the first
@@ -78,20 +78,34 @@ print(`${'\x1b[1m'}Icons${OFF} — every one that ships has to load as an image`
         GLib.file_test(GLib.build_filenamev([ICONS, `${FALLBACK}.svg`]), GLib.FileTest.EXISTS), true);
 }
 
-print(`\n${'\x1b[1m'}Providers${OFF} — an icon asked for is an icon that exists`);
+print(`\n${'\x1b[1m'}Providers${OFF} — each asks for a stock Adwaita symbolic`);
 {
-    // A typo in a provider's `icon` is silent: the button falls back to the
-    // gauge and looks like a provider that simply has no icon of its own.
-    for (const provider of PROVIDERS) {
-        if (provider.icon === undefined) {
-            check(`${provider.id} declares no icon`, 'falls back', 'falls back');
-            continue;
+    // The company's own marks may not ship (README, Credits and trademarks), so a
+    // provider names an icon from Adwaita, which every GNOME has. A typo there is
+    // silent: the button shows the gauge, as under a theme that lacks the icon.
+    const themes = GLib.get_system_data_dirs().map(dir =>
+        GLib.build_filenamev([dir, 'icons', 'Adwaita', 'symbolic']));
+
+    function inAdwaita(name) {
+        for (const theme of themes) {
+            if (!GLib.file_test(theme, GLib.FileTest.IS_DIR))
+                continue;
+            const contexts = Gio.File.new_for_path(theme).enumerate_children(
+                'standard::name', Gio.FileQueryInfoFlags.NONE, null);
+            let info;
+            while ((info = contexts.next_file(null))) {
+                const path = GLib.build_filenamev([theme, info.get_name(), `${name}.svg`]);
+                if (GLib.file_test(path, GLib.FileTest.EXISTS))
+                    return loads(path);
+            }
         }
-        const name = String(provider.icon).replace(/\.svg$/, '');
-        const path = GLib.build_filenamev([ICONS, `${name}.svg`]);
-        check(`${provider.id} asks for ${name}.svg`,
-            GLib.file_test(path, GLib.FileTest.EXISTS) ? loads(path) : 'no such file', 'yes');
+        return 'not in Adwaita';
     }
+
+    for (const provider of PROVIDERS)
+        check(`${provider.id} asks for ${provider.icon}`, inAdwaita(provider.icon), 'yes');
+    const names = PROVIDERS.map(provider => provider.icon);
+    check('no two providers share an icon', new Set(names).size, names.length);
 }
 
 print('');
