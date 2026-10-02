@@ -37,7 +37,7 @@ export const CodexProvider = {
     },
 
     async read(http, cancellable = null) {
-        const auth = readCredentials();
+        const auth = await readCredentials();
         if (!auth) {
             return reading(this, {status: Status.SIGNED_OUT});
         }
@@ -170,8 +170,8 @@ function codexHome() {
 }
 
 // Read fresh every poll and never kept. A login kept in the keyring reads as signed out.
-function readCredentials() {
-    const parsed = readJson(CodexProvider.credentialsFile(), 'Codex credentials');
+async function readCredentials() {
+    const parsed = await readJson(CodexProvider.credentialsFile(), 'Codex credentials');
     const tokens = parsed?.tokens;
     const accessToken = stringOrNull(tokens?.access_token);
 

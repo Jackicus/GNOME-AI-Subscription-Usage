@@ -41,7 +41,7 @@ export const ClaudeProvider = {
     },
 
     async read(http, cancellable = null) {
-        const auth = readCredentials();
+        const auth = await readCredentials();
         if (!auth) {
             return reading(this, {status: Status.SIGNED_OUT});
         }
@@ -187,8 +187,8 @@ function kindRank(id) {
 }
 
 // Read fresh every poll and never kept or logged.
-function readCredentials() {
-    const oauth = readJson(ClaudeProvider.credentialsFile(), 'Claude credentials')?.claudeAiOauth;
+async function readCredentials() {
+    const oauth = (await readJson(ClaudeProvider.credentialsFile(), 'Claude credentials'))?.claudeAiOauth;
     const accessToken = stringOrNull(oauth?.accessToken);
     if (!accessToken)
         return null;
@@ -196,14 +196,14 @@ function readCredentials() {
         accessToken,
         subscriptionType: oauth.subscriptionType ?? null,
         rateLimitTier: oauth.rateLimitTier ?? null,
-        accountTier: readAccountTier(Gio.File.new_for_path(GLib.build_filenamev([GLib.get_home_dir(), '.claude.json']))),
+        accountTier: await readAccountTier(Gio.File.new_for_path(GLib.build_filenamev([GLib.get_home_dir(), '.claude.json']))),
     };
 }
 
 // The current plan, from ~/.claude.json: the credentials' tier is stamped at
 // sign-in and never rewritten.
-export function readAccountTier(file) {
-    const account = readJson(file, 'Claude account file')?.oauthAccount;
+export async function readAccountTier(file) {
+    const account = (await readJson(file, 'Claude account file'))?.oauthAccount;
     return stringOrNull(account?.organizationRateLimitTier) ?? stringOrNull(account?.userRateLimitTier);
 }
 

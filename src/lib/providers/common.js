@@ -4,6 +4,8 @@ import GLib from 'gi://GLib';
 import {Reading, Status} from '../usage.js';
 import * as Log from '../log.js';
 
+Gio._promisify(Gio.File.prototype, 'load_contents_async');
+
 export function reading(provider, fields) {
     return new Reading({
         providerId: provider.id,
@@ -14,9 +16,9 @@ export function reading(provider, fields) {
 
 // The file's JSON, or null when it is missing or half-written: both are
 // ordinary for a login file, so only a debug line.
-export function readJson(file, what) {
+export async function readJson(file, what) {
     try {
-        const [, bytes] = file.load_contents(null);
+        const [bytes] = await file.load_contents_async(null);
         return JSON.parse(new TextDecoder().decode(bytes));
     } catch (e) {
         Log.debug(`No ${what} to read: ${e.message}`);

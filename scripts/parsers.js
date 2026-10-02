@@ -103,7 +103,7 @@ print('\n\x1b[1mClaude\x1b[0m — the plan name, and which file it comes from');
     // The account file as it would be on disk, read the way the extension
     // reads the real one -- so what is pinned here is the actual file handling
     // rather than a re-statement of it. A null text means no file at all.
-    const accountTier = text => {
+    const accountTier = async text => {
         const file = Gio.File.new_for_path(
             GLib.build_filenamev([dir, `claude-${written.length}.json`]));
         if (text !== null) {
@@ -115,7 +115,7 @@ print('\n\x1b[1mClaude\x1b[0m — the plan name, and which file it comes from');
     };
 
     // The real shape: the organisation's tier, the admin's own one null.
-    const live = accountTier(JSON.stringify({
+    const live = await accountTier(JSON.stringify({
         numStartups: 42,
         oauthAccount: {
             emailAddress: 'someone@example.com',
@@ -137,27 +137,28 @@ print('\n\x1b[1mClaude\x1b[0m — the plan name, and which file it comes from');
 
     // A personal account carries no organisation tier, so its own is taken.
     check('userRateLimitTier when there is no org tier',
-        accountTier(JSON.stringify({oauthAccount: {
+        await accountTier(JSON.stringify({oauthAccount: {
             organizationRateLimitTier: null, userRateLimitTier: 'default_claude_pro',
         }})), 'default_claude_pro');
 
     // Each of these is an ordinary state and not a fault: no file until Claude
     // Code has run, a half-written one while it rewrites, and no oauthAccount
     // at all until it has been signed into once.
-    check('an absent file yields no tier', accountTier(null), null);
-    check('an unparseable file yields no tier', accountTier('{"oauthAccount": {"organi'), null);
-    check('a file with no oauthAccount yields none', accountTier('{"numStartups": 42}'), null);
-    check('an empty tier is not a tier', accountTier('{"oauthAccount": {"organizationRateLimitTier": ""}}'), null);
-    check('a non-string tier is not a tier', accountTier('{"oauthAccount": {"userRateLimitTier": 7}}'), null);
+    check('an absent file yields no tier', await accountTier(null), null);
+    check('an unparseable file yields no tier', await accountTier('{"oauthAccount": {"organi'), null);
+    check('a file with no oauthAccount yields none', await accountTier('{"numStartups": 42}'), null);
+    check('an empty tier is not a tier', await accountTier('{"oauthAccount": {"organizationRateLimitTier": ""}}'), null);
+    check('a non-string tier is not a tier', await accountTier('{"oauthAccount": {"userRateLimitTier": 7}}'), null);
 
     // ...and every one of them falls through to what there was before.
     for (const [what, text] of [['absent', null], ['unparseable', '{"oauthAcc'],
         ['without oauthAccount', '{}']]) {
         check(`${what} falls back to the credentials`,
-            planLabel({...stale, accountTier: accountTier(text)}), 'Max (5x)');
+            // eslint-disable-next-line no-await-in-loop
+            planLabel({...stale, accountTier: await accountTier(text)}), 'Max (5x)');
     }
     check('with no tier anywhere, the subscription name',
-        planLabel({subscriptionType: 'max', accountTier: accountTier(null)}), 'Max');
+        planLabel({subscriptionType: 'max', accountTier: await accountTier(null)}), 'Max');
     check('nothing known at all means no plan shown', planLabel({}), null);
 
     // And the whole way through, on a real response.
