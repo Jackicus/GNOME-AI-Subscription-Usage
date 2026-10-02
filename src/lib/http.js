@@ -33,13 +33,11 @@ export class Http {
 
     _send(method, url, headers, body, cancellable) {
         const message = Soup.Message.new(method, url);
-        if (!message)
-            return Promise.reject(new HttpError(0, `Not a usable URL: ${url}`));
 
         const requestHeaders = message.get_request_headers();
         for (const [name, value] of Object.entries(headers))
             requestHeaders.append(name, value);
-        if (!headers['User-Agent'] && this._userAgent)
+        if (!headers['User-Agent'])
             requestHeaders.append('User-Agent', this._userAgent);
 
         if (body !== null) {
@@ -67,7 +65,7 @@ export class Http {
                         return;
                     }
 
-                    const data = bytes?.get_data();
+                    const data = bytes.get_data();
                     if (!data?.length) {
                         reject(new HttpError(status, 'The response was empty.'));
                         return;
@@ -83,7 +81,7 @@ export class Http {
     }
 
     destroy() {
-        this._session?.abort();
+        this._session.abort();
         this._session = null;
     }
 }

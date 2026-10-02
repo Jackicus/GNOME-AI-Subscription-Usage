@@ -121,7 +121,7 @@ export default class AiUsagePreferences extends ExtensionPreferences {
 
     _providerRow(provider) {
         const path = GLib.find_program_in_path(provider.cli);
-        const tool = provider.cliName ?? provider.cli;
+        const tool = provider.cliName;
 
         const row = new Adw.ExpanderRow({
             title: provider.displayName,
@@ -130,13 +130,7 @@ export default class AiUsagePreferences extends ExtensionPreferences {
                 : `${tool} is not installed — this provider is left out`,
         });
 
-        let settings = null;
-        try {
-            settings = providerSettings(this.dir, provider.id);
-        } catch (e) {
-            row.subtitle = `Settings unavailable: ${e.message}`;
-            return row;
-        }
+        const settings = providerSettings(this.dir, provider.id);
 
         const toggle = new Gtk.Switch({
             valign: Gtk.Align.CENTER,
@@ -181,14 +175,14 @@ function comboRow(settings, key, title, choices) {
     const nicks = choices.map(([nick]) => nick);
     const sync = () => {
         const index = nicks.indexOf(settings.get_string(key));
-        if (index >= 0 && row.selected !== index)
+        if (row.selected !== index)
             row.selected = index;
     };
     sync();
 
     row.connect('notify::selected', () => {
         const nick = nicks[row.selected];
-        if (nick && nick !== settings.get_string(key))
+        if (nick !== settings.get_string(key))
             settings.set_string(key, nick);
     });
     const changedId = settings.connect(`changed::${key}`, sync);

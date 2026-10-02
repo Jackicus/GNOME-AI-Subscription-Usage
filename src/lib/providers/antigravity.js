@@ -174,8 +174,6 @@ function windowLabel(window) {
 
 // Shortest window first, by the bucket id, which carries the window.
 function windowRank(id) {
-    if (typeof id !== 'string')
-        return 3;
     if (id.includes('5h'))
         return 0;
     if (id.includes('daily'))

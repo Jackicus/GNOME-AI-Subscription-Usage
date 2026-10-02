@@ -112,13 +112,13 @@ function limitFromRow(row) {
         resetsAt: parseTimestamp(row.resets_at),
         active: row.is_active === true,
         // Scoped by model or by surface: either way the per-model switch hides it.
-        scoped: !!row?.scope,
+        scoped: !!row.scope,
     });
 }
 
 function labelForRow(kind, row) {
     const base = KIND_LABELS[kind] ?? humanise(kind);
-    const scope = row?.scope?.model?.display_name ?? row?.scope?.surface?.display_name;
+    const scope = row.scope?.model?.display_name ?? row.scope?.surface?.display_name;
     return scope ? `${base} · ${scope}` : base;
 }
 

@@ -42,7 +42,7 @@ export function parseTimestamp(value) {
 
 export function failureReading(provider, e, plan = null) {
     // Duck-typed, not HttpError: importing http.js would put Soup in prefs' graph.
-    const status = Number.isFinite(e?.status) ? e.status : 0;
+    const status = Number.isFinite(e.status) ? e.status : 0;
     const expired = status === 401 || status === 403;
     return reading(provider, {
         status: expired ? Status.EXPIRED : Status.UNAVAILABLE,

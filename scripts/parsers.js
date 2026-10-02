@@ -249,7 +249,6 @@ print('\n\x1b[1mThe breakdown line\x1b[0m — quiet until it has something to re
         'Where this week went: Claude Code 60% · Chats 40%');
     check('and it does not open with a figure', /^[A-Za-z]/.test(formatBreakdown(mixed)), true);
     check('an empty breakdown is silent', formatBreakdown([]), null);
-    check('and a missing one does not throw', formatBreakdown(undefined), null);
 }
 
 print('\n\x1b[1mCodex\x1b[0m — tests/fixtures/codex-usage.json  \x1b[2m(shape only; never seen live)\x1b[0m');

@@ -7,7 +7,7 @@ import St from 'gi://St';
 import * as PanelMenu from 'resource:///org/gnome/shell/ui/panelMenu.js';
 import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
 
-import {ResetFormat, Severity, Status, formatBreakdown, formatPercent, formatReset} from './usage.js';
+import {Severity, Status, formatBreakdown, formatPercent, formatReset} from './usage.js';
 
 // Secondary text is dimmed with actor opacity, so it suits light and dark menus.
 const DIM_OPACITY = 160;
@@ -27,9 +27,9 @@ const SEVERITY_CLASS = {
 function explain(reading) {
     switch (reading.status) {
     case Status.SIGNED_OUT:
-        return `Not signed in. Run ${reading.cli ?? 'its command-line tool'} and sign in there.`;
+        return `Not signed in. Run ${reading.cli} and sign in there.`;
     case Status.EXPIRED:
-        return `The stored login has expired. Run ${reading.cli ?? 'its command-line tool'} once and it will refresh itself.`;
+        return `The stored login has expired. Run ${reading.cli} once and it will refresh itself.`;
     case Status.UNSUPPORTED:
         return reading.message ?? 'This login has no subscription limits to show.';
     case Status.UNAVAILABLE:
@@ -54,7 +54,7 @@ class UsageBar extends St.BoxLayout {
 
         this._fraction = Math.max(0, Math.min(1, fraction));
         this._fill = new St.Widget({
-            style_class: `ai-usage-bar-fill ${SEVERITY_CLASS[severity] ?? SEVERITY_CLASS[Severity.NORMAL]}`,
+            style_class: `ai-usage-bar-fill ${SEVERITY_CLASS[severity]}`,
             x_expand: false,
             y_expand: true,
         });
@@ -99,8 +99,8 @@ class UsageIndicator extends PanelMenu.Button {
         this._reading = null;
         this._showPercent = true;
         this._pick = null;      // (reading) => Limit
-        this._resetFormat = ResetFormat.AUTO;
-        this._clock = null;     // '12h' or '24h'; null reads as 24h
+        this._resetFormat = null;
+        this._clock = null;     // '12h' or '24h'
 
         this._name = name;
         this._actions = [];
@@ -113,8 +113,8 @@ class UsageIndicator extends PanelMenu.Button {
     configure({showPercent, pick, resetFormat, clock}) {
         this._showPercent = showPercent;
         this._pick = pick;
-        this._resetFormat = resetFormat ?? ResetFormat.AUTO;
-        this._clock = clock ?? null;
+        this._resetFormat = resetFormat;
+        this._clock = clock;
     }
 
     // null until the provider has answered.
@@ -137,7 +137,7 @@ class UsageIndicator extends PanelMenu.Button {
             return;
         }
 
-        const shown = reading.ok ? this._pick?.(reading) ?? reading.worst : null;
+        const shown = reading.ok ? this._pick(reading) : null;
         // No figure: amber when the fix is the user's (signing in again).
         if (!shown) {
             this._label.set_text('');
@@ -159,7 +159,7 @@ class UsageIndicator extends PanelMenu.Button {
     _setPanelSeverity(severity) {
         for (const cls of Object.values(SEVERITY_CLASS))
             this._box.remove_style_class_name(cls);
-        this._box.add_style_class_name(SEVERITY_CLASS[severity] ?? SEVERITY_CLASS[Severity.NORMAL]);
+        this._box.add_style_class_name(SEVERITY_CLASS[severity]);
     }
 
     _renderMenu() {
@@ -178,7 +178,7 @@ class UsageIndicator extends PanelMenu.Button {
     // St has no :last-child; the stylesheet pads the marked row.
     _padLastRow() {
         const rows = this._section.box.get_children();
-        rows[rows.length - 1]?.add_style_class_name('ai-usage-last');
+        rows.at(-1).add_style_class_name('ai-usage-last');
     }
 
     _addReading(reading) {
@@ -210,7 +210,7 @@ class UsageIndicator extends PanelMenu.Button {
 
     // Drawn at the right of the header by the next setReading().
     setActions(items) {
-        this._actions = items ?? [];
+        this._actions = items;
     }
 });
 
@@ -273,16 +273,14 @@ function headerItem(name, plan, actions) {
         nameLabel.x_align = Clutter.ActorAlign.START;
     }
 
-    if (actions?.length) {
-        const buttons = new St.BoxLayout({
-            style_class: 'ai-usage-action-row',
-            x_align: Clutter.ActorAlign.END,
-            y_align: Clutter.ActorAlign.CENTER,
-        });
-        for (const {label, icon, action} of actions)
-            buttons.add_child(actionButton(label, icon, action));
-        row.add_child(buttons);
-    }
+    const buttons = new St.BoxLayout({
+        style_class: 'ai-usage-action-row',
+        x_align: Clutter.ActorAlign.END,
+        y_align: Clutter.ActorAlign.CENTER,
+    });
+    for (const {label, icon, action} of actions)
+        buttons.add_child(actionButton(label, icon, action));
+    row.add_child(buttons);
 
     item.add_child(row);
     return item;
@@ -324,7 +322,7 @@ function limitItem(limit, resetFormat, clock) {
     // A box, not an St.Bin, so the figure ends where the bar does.
     const figure = new St.Label({
         text: formatPercent(limit.percent),
-        style_class: `ai-usage-limit-figure ${SEVERITY_CLASS[limit.severity] ?? SEVERITY_CLASS[Severity.NORMAL]}`,
+        style_class: `ai-usage-limit-figure ${SEVERITY_CLASS[limit.severity]}`,
         x_expand: true,
         x_align: Clutter.ActorAlign.END,
         y_align: Clutter.ActorAlign.CENTER,
