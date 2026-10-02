@@ -10,10 +10,6 @@ import {applyOptions, displayOptions, providerSettings} from './settings.js';
 import {ResetFormat, Status, formatReset} from './usage.js';
 import * as Log from './log.js';
 
-// limit key -> the resets_at (unix seconds) it was notified for. Module scope so
-// that lock and unlock, which disable and enable, do not notify again.
-const notified = new Map();
-
 // A scheduled poll is skipped after this long without input.
 const IDLE_SKIP_MS = 10 * 60 * 1000;
 
@@ -29,9 +25,11 @@ export class AiUsageApp {
         this._settings = extension.getSettings();
 
         this._http = null;
+        this._providers = [];
         this._buttons = new Map();   // provider id -> {indicator}
         this._entries = [];     // {provider, settings} per live provider
         this._raw = [];         // what the providers returned, untouched
+        this._notified = new Map();   // limit key -> the resets_at (unix seconds) it was notified for
 
         this._showPercent = true;
         this._pick = reading => reading.worst;
@@ -50,6 +48,8 @@ export class AiUsageApp {
 
     enable() {
         this._http = new Http(`gnome-shell-extension-ai-usage/${this._extension.metadata['version-name']}`);
+        // Per enable, so whatever a provider caches goes with disable().
+        this._providers = allProviders().map(provider => Object.create(provider));
 
         this._watchClock();
         this._readDisplay();
@@ -77,6 +77,7 @@ export class AiUsageApp {
             settings.disconnect(handlerId);
         this._providerSettingsById.clear();
         this._entries = [];
+        this._providers = [];
 
         this._stopWatchingCredentials();
         if (this._debounceId)
@@ -121,7 +122,7 @@ export class AiUsageApp {
     // A provider is live when it is switched on and its command-line tool is installed.
     _buildEntries() {
         this._entries = [];
-        for (const provider of allProviders()) {
+        for (const provider of this._providers) {
             const settings = this._providerSettings(provider.id);
             if (!settings.get_boolean('enabled'))
                 continue;
@@ -365,9 +366,9 @@ export class AiUsageApp {
             return;
 
         const now = GLib.DateTime.new_now_utc().to_unix();
-        for (const [key, resetsAt] of notified) {
+        for (const [key, resetsAt] of this._notified) {
             if (resetsAt !== null && resetsAt < now)
-                notified.delete(key);
+                this._notified.delete(key);
         }
 
         for (const reading of this._raw) {
@@ -378,12 +379,12 @@ export class AiUsageApp {
                 const window = limit.resetsAt?.to_unix() ?? null;
 
                 if (limit.percent < this._notifyAt) {
-                    notified.delete(key);
+                    this._notified.delete(key);
                     continue;
                 }
-                if (notified.has(key) && notified.get(key) === window)
+                if (this._notified.has(key) && this._notified.get(key) === window)
                     continue;
-                notified.set(key, window);
+                this._notified.set(key, window);
 
                 const when = limit.resetsAt
                     ? ` ${formatReset(limit.resetsAt, {format: this._resetFormat, clock: this._clock})}.`

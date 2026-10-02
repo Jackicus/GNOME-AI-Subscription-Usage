@@ -74,8 +74,9 @@ log on (`lib/log.js`'s `setVerbose`) and names its stage after a checksum of
   which re-reads only if the figures are over a minute old. Header refresh
   always reads, every provider.
 * Notifications fire once per limit per window, keyed by reset time (rounded to
-  the minute by `parseTimestamp()`); the set is module scope in `app.js` so
-  lock/unlock does not repeat them.
+  the minute by `parseTimestamp()`). The app holds that record, so a disable
+  (a screen lock too) forgets it and a limit still past the line notifies once
+  more after the unlock.
 * `reset-format` words resets in pop-ups and notifications alike, through
   `formatReset()` on the desktop's `clock-format`; `auto` matches Claude Code.
   Claude's labels (`5-hour limit`, `Weekly · all models`) and plan format
