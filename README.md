@@ -23,7 +23,7 @@ has a refresh button and an arrow to the preferences.](docs/screenshots/pop-up.p
 - **Fresh when you look**: a reading every five minutes, skipped while the session is
   idle, and again when you open a pop-up whose figures are over a minute old.
 - **An optional notification** when a limit crosses a figure you choose, once per limit
-  until it resets.
+  until it resets (or once more after the screen is unlocked).
 - **Your choice of figure and place**: the session, the week or whichever is highest, at
   the left, centre or right of the top bar.
 
