@@ -1,21 +1,6 @@
-// Google Antigravity, by way of the Antigravity CLI's own login.
-//
-// Antigravity keeps its login in the **secret service** rather than a file --
-// the file beside it, ~/.gemini/antigravity-cli/antigravity-oauth-token, is a
-// fallback the CLI only writes when there is no D-Bus session (a container, a
-// headless host), and on an ordinary desktop it is stale. Reading the file
-// first would serve a dead token on a perfectly healthy machine, so the keyring
-// is tried first and the file only after.
-//
-// The figures take two requests: loadCodeAssist names the project the account's
-// quota hangs off, and retrieveUserQuotaSummary returns the buckets. Both are
-// POSTs, and both are reads -- the CLI's own /usage asks the same questions.
-// The project id does not change, so it is kept for the life of the extension
-// and only the second request is made on later polls.
-//
-// `agy -p /usage --output-format json` answers the same question without any of
-// this, but it takes around eleven seconds and starts the user's MCP servers,
-// which is far too heavy for something polled behind a panel button.
+// agy keeps its login in the keyring; the token file is only written without a
+// D-Bus session and is stale on a desktop, so it is the fallback. Not
+// `agy -p /usage`: that takes about eleven seconds and starts the MCP servers.
 
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
@@ -30,13 +15,10 @@ const QUOTA_URL = 'https://cloudcode-pa.googleapis.com/v1internal:retrieveUserQu
 
 const CLI = 'agy';
 
-// Not cosmetic: the service answers 403 to a user agent that does not begin
-// with "antigravity".
+// The service answers 403 to a user agent not starting "antigravity".
 const USER_AGENT = 'antigravity/cli (gnome-shell-extension-ai-usage)';
 
-// The CLI stores its token with go-keyring, which uses the generic schema with
-// service and username attributes. DONT_MATCH_NAME because the stored item
-// carries go-keyring's schema name rather than one of ours.
+// go-keyring's item: the generic schema, matched on its attributes only.
 const KEYRING_SCHEMA = new Secret.Schema(
     'org.freedesktop.Secret.Generic',
     Secret.SchemaFlags.DONT_MATCH_NAME,
@@ -55,10 +37,7 @@ export const AntigravityProvider = {
     icon: 'antigravity-symbolic',
 
     capabilities: {
-        // The summary's buckets are grouped by model family, but those groups
-        // ARE the account's limits rather than extras beside a whole-account
-        // one -- so there is nothing here that a "per-model" switch could hide
-        // without hiding everything.
+        // Its buckets per model family are the account's only limits.
         perModel: false,
         breakdown: false,
         credits: false,
@@ -68,8 +47,7 @@ export const AntigravityProvider = {
         return detect(CLI);
     },
 
-    // The fallback file only. The keyring cannot be watched this way, so a
-    // refresh there is picked up by the next poll rather than at once.
+    // The fallback file only: the keyring cannot be watched.
     credentialsFile() {
         return Gio.File.new_for_path(GLib.build_filenamev(
             [GLib.get_home_dir(), '.gemini', 'antigravity-cli', 'antigravity-oauth-token']));
@@ -109,16 +87,14 @@ export const AntigravityProvider = {
                 throw e;
 
             const failure = failureReading(this, e, this._plan);
-            // The project id is bound to the login, so a rejected token
-            // means the one we remembered may not be ours any more.
+            // The project belongs to the login, so a rejected login forgets it.
             if (failure.status === Status.EXPIRED)
                 this._projectId = null;
             return failure;
         }
     },
 
-    // The project the quota hangs off. It does not change, so it is asked for
-    // once and kept -- halving the requests every poll after the first.
+    // Asked for once and kept, which halves the requests per poll.
     async _project(http, headers, cancellable) {
         if (this._projectId)
             return this._projectId;
@@ -147,7 +123,6 @@ export const AntigravityProvider = {
         if (!limits.length)
             throw new Error('no quota buckets in the response');
 
-        // Shortest window first, so the one about to bite reads first.
         limits.sort((a, b) => windowRank(a.id) - windowRank(b.id));
         return this._reading({status: Status.OK, plan: this._plan, limits});
     },
@@ -162,15 +137,8 @@ export const AntigravityProvider = {
     },
 };
 
-// ---- the response -----------------------------------------------------------
-
-// *** The response reports what is LEFT, and this extension shows what is USED.
-// *** Every other provider reports the figure the other way round, so getting
-// this backwards would put "100%" on the button at the moment a limit was
-// untouched. It is the single most dangerous line in this file.
+// The API reports the fraction LEFT; this shows the share used.
 function limitFromBucket(group, bucket) {
-    // Strictly a real number: a null here would invert to 100% used and
-    // report an untouched limit as exhausted.
     const remaining = numberOrNull(bucket?.remainingFraction);
     if (remaining === null)
         return null;
@@ -178,9 +146,7 @@ function limitFromBucket(group, bucket) {
     const percent = (1 - Math.max(0, Math.min(1, remaining))) * 100;
     return new Limit({
         id: typeof bucket?.bucketId === 'string' ? bucket.bucketId : 'quota',
-        // The bucket's own displayName is "Weekly Limit Remaining", which would
-        // be an outright lie over a figure that counts what has been used. The
-        // label is built from the window and the model family instead.
+        // Not the bucket's displayName, "Weekly Limit Remaining", over a used figure.
         label: bucketLabel(group, bucket),
         percent,
         resetsAt: parseTimestamp(bucket?.resetTime),
@@ -206,8 +172,7 @@ function windowLabel(window) {
     }
 }
 
-// Sorting is by the bucket id, which carries the window: the 5-hour buckets
-// come before the weekly ones.
+// Shortest window first, by the bucket id, which carries the window.
 function windowRank(id) {
     if (typeof id !== 'string')
         return 3;
@@ -220,8 +185,7 @@ function windowRank(id) {
     return 3;
 }
 
-// "free-tier" -> "Free tier". The tier's display name is just "Antigravity",
-// which beside the provider's own name would say nothing.
+// "free-tier" -> "Free tier"; the tier's displayName is only "Antigravity".
 function tierLabel(tier) {
     const id = tier?.id;
     if (typeof id !== 'string' || !id)
@@ -229,9 +193,7 @@ function tierLabel(tier) {
     return id.replace(/[-_]/g, ' ').replace(/^\w/, c => c.toUpperCase());
 }
 
-// ---- the stored login -------------------------------------------------------
-
-// Keyring first, file second. Read fresh every poll and never kept.
+// Read fresh every poll and never kept.
 async function readCredentials(cancellable) {
     const fromKeyring = await lookupKeyring(cancellable);
     if (fromKeyring)
@@ -246,8 +208,7 @@ function lookupKeyring(cancellable) {
             try {
                 secret = Secret.password_lookup_finish(result);
             } catch (e) {
-                // A locked keyring, or no secret service at all. Neither is a
-                // fault to shout about -- the file is tried next.
+                // A locked keyring or no secret service: the file is tried next.
                 Log.debug(`Antigravity keyring lookup failed: ${e.message}`);
             }
             resolve(secret ? parseToken(secret) : null);
@@ -272,11 +233,10 @@ function parseToken(text) {
     if (typeof accessToken !== 'string' || !accessToken)
         return null;
 
-    // The expiry is RFC3339 with nanoseconds, which GLib parses happily.
     const expiry = GLib.DateTime.new_from_iso8601(parsed.token.expiry ?? '', null);
     return {
         accessToken,
-        // No expiry means letting the request decide rather than assuming.
+        // No expiry: the request decides.
         expired: expiry ? expiry.to_unix() * 1000 <= Date.now() : false,
     };
 }

@@ -1,17 +1,5 @@
-// OpenAI Codex, by way of the Codex CLI's own login.
-//
-// *** NOT VERIFIED AGAINST A RUNNING CLI. *** Everything here was read out of
-// the openai/codex source rather than observed: the Codex CLI is not installed
-// on the machine this was written on, so no request has ever been made and no
-// response has ever been parsed. Treat the field names as well-sourced but
-// unproven, and see the repository issue tracking this.
-//
-// Codex's own /status and /usage read GET /backend-api/wham/usage with the
-// access token stored at sign-in -- a plain read with no body, which the
-// upstream source describes as being for "passive account usage readers". The
-// per-window figures also ride along as x-codex-* headers on ordinary model
-// calls, but those cost a request against the very limit being measured, so
-// this only ever uses the dedicated endpoint.
+// Written from the openai/codex source and not yet run against a live account
+// (issue #8). The endpoint is the one Codex's own /status reads.
 
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
@@ -24,14 +12,9 @@ const USAGE_URL = 'https://chatgpt.com/backend-api/wham/usage';
 
 const CLI = 'codex';
 
-// The CLI identifies itself this way. Whether the service cares is unknown;
-// sending it means this looks like the tool whose login it is rather than
-// something unfamiliar.
 const USER_AGENT = 'codex_cli_rs';
 
-// A rolling window is labelled by its own length, since the response does not
-// name its windows. These are the two lengths the plans use today; anything
-// else is described by its duration rather than guessed at.
+// The response does not name its windows, so they are known by their length.
 const SESSION_WINDOW_SECONDS = 5 * 60 * 60;
 const WEEK_WINDOW_SECONDS = 7 * 24 * 60 * 60;
 
@@ -62,8 +45,6 @@ export const CodexProvider = {
             return reading(this, {status: Status.SIGNED_OUT});
         }
 
-        // An API-key login is a real login with no subscription behind it, so
-        // there are no windows to show. Saying that is more use than an error.
         if (!auth.accessToken) {
             return reading(this, {
                 status: Status.UNSUPPORTED,
@@ -71,8 +52,6 @@ export const CodexProvider = {
             });
         }
 
-        // The token carries its own expiry, so a dead one is known without
-        // spending a request to be told so.
         if (auth.expired) {
             return reading(this, {status: Status.EXPIRED});
         }
@@ -90,7 +69,7 @@ export const CodexProvider = {
             body = await http.getJson(USAGE_URL, headers, cancellable);
         } catch (e) {
             if (e instanceof Gio.IOErrorEnum)
-                throw e;   // cancelled: the caller is disabling or superseding us
+                throw e;   // cancelled
             return failureReading(this, e, auth.plan);
         }
 
@@ -108,9 +87,7 @@ export const CodexProvider = {
         pushWindow(limits, rate?.primary_window, {fallbackId: 'primary'});
         pushWindow(limits, rate?.secondary_window, {fallbackId: 'secondary'});
 
-        // Per-model buckets, each with a rate limit of the same shape. The id
-        // is keyed on the model rather than the array position, so that it
-        // stays the same between polls -- notifications are remembered by it.
+        // Keyed on the model, not the position: notifications remember the id.
         const extra = Array.isArray(body?.additional_rate_limits) ? body.additional_rate_limits : [];
         extra.forEach((entry, index) => {
             const name = entry?.normal_model_slug || entry?.limit_name || entry?.metered_feature || null;
@@ -134,8 +111,6 @@ export const CodexProvider = {
     },
 };
 
-// ---- the response -----------------------------------------------------------
-
 function pushWindow(limits, window, {fallbackId, scoped = false, modelName = null}) {
     const percent = numberOrNull(window?.used_percent);
     if (percent === null)
@@ -144,9 +119,7 @@ function pushWindow(limits, window, {fallbackId, scoped = false, modelName = nul
     const seconds = numberOrNull(window?.limit_window_seconds);
     const base = windowLabel(seconds);
     limits.push(new Limit({
-        // A whole-account window of a recognised length takes the same id the
-        // other providers use, so that the "figure on the button" preference
-        // can ask for the session or the week and find it here too.
+        // The shared ids let primary-limit find the session or the week here too.
         id: scoped ? fallbackId : canonicalId(seconds) ?? fallbackId,
         label: modelName ? `${base} · ${modelName}` : base,
         percent,
@@ -165,10 +138,6 @@ function canonicalId(seconds) {
     return null;
 }
 
-// The payload never names its windows, so the name comes from the length. The
-// two known lengths get the same wording as the other providers; anything else
-// is described rather than guessed at, so a plan with different windows still
-// reads correctly.
 function windowLabel(seconds) {
     if (seconds === null || seconds <= 0)
         return 'Current limit';
@@ -183,14 +152,8 @@ function windowLabel(seconds) {
     return `Last ${Math.round(hours / 24)} days`;
 }
 
-// reset_at is Unix epoch seconds.
-//
-// The response also carries reset_after_seconds, the same moment said
-// relatively, and deriving an absolute time from it is tempting. It is a trap:
-// the derived time moves a little on every poll, and notifications are
-// remembered per window by exactly that timestamp -- so a limit above the
-// notify threshold would announce itself again every single poll. With no
-// absolute time there is simply no reset shown.
+// Absolute reset only: one derived from reset_after_seconds drifts per poll and
+// would notify again every time.
 function resetTime(window) {
     const at = numberOrNull(window?.reset_at);
     if (at === null || at <= 0)
@@ -198,11 +161,7 @@ function resetTime(window) {
     return GLib.DateTime.new_from_unix_utc(at);
 }
 
-// Only when the account actually has credits: a "0 left" row on an account
-// that never had any is noise. A balance is an amount, not a share of anything,
-// so there is no figure to draw a bar from: `percent: null` is what tells the
-// renderer to show a status line without one, as Claude's "Extra usage · off"
-// does.
+// A balance is not a share of anything, so the row has no bar (percent null).
 function creditsFrom(body) {
     const credits = body?.credits;
     if (!credits || credits.has_credits === false)
@@ -210,7 +169,7 @@ function creditsFrom(body) {
     if (credits.unlimited === true)
         return {percent: null, label: 'Credits · unlimited'};
 
-    // The balance comes through as a string in the upstream types.
+    // A string in the upstream types.
     const balance = credits.balance;
     if (typeof balance !== 'string' && typeof balance !== 'number')
         return null;
@@ -226,9 +185,7 @@ function planLabel(planType) {
     return planType.replace(/_/g, ' ').replace(/^\w/, c => c.toUpperCase());
 }
 
-// ---- the stored login -------------------------------------------------------
-
-// CODEX_HOME wins if it is set and non-empty, as the CLI itself does.
+// As the CLI does: CODEX_HOME when set and non-empty.
 function codexHome() {
     const home = GLib.getenv('CODEX_HOME');
     if (home)
@@ -236,9 +193,7 @@ function codexHome() {
     return GLib.build_filenamev([GLib.get_home_dir(), '.codex']);
 }
 
-// Read fresh every poll and never kept. Note that the CLI can be configured to
-// keep its login in the secret service instead, in which case there is no file
-// and this reports as signed out -- the same gap the Claude provider has.
+// Read fresh every poll and never kept. A login kept in the keyring reads as signed out.
 function readCredentials() {
     const contents = readText(CodexProvider.credentialsFile(), 'Codex credentials');
     if (contents === null)
@@ -248,14 +203,13 @@ function readCredentials() {
     try {
         parsed = JSON.parse(contents);
     } catch {
-        return null;   // a half-written file; the monitor will bring us back
+        return null;   // half-written; the file monitor reads again
     }
 
     const tokens = parsed?.tokens;
     const accessToken = typeof tokens?.access_token === 'string' ? tokens.access_token : null;
 
-    // An API-key login is signed in but has no windows; it is told apart from
-    // being signed out entirely by there being a key at all.
+    // An API-key login is signed in but has no subscription windows.
     if (!accessToken)
         return parsed?.OPENAI_API_KEY ? {accessToken: null} : null;
 
@@ -264,7 +218,6 @@ function readCredentials() {
 
     return {
         accessToken,
-        // The account id is usually beside the token, and otherwise inside it.
         accountId: typeof tokens?.account_id === 'string' && tokens.account_id
             ? tokens.account_id
             : authClaims?.chatgpt_account_id ?? null,
@@ -273,14 +226,13 @@ function readCredentials() {
     };
 }
 
-// The access token is a JWT, so its expiry is readable without asking anyone.
-// Any trouble reading it means falling through to the request, which will say.
+// The token is a JWT; if it cannot be read, the request decides.
 function jwtClaims(token) {
     try {
         const payload = token.split('.')[1];
         if (!payload)
             return null;
-        // JWTs use base64url and drop the padding; GLib wants neither.
+        // base64url without padding, to the base64 GLib reads.
         const padded = payload.replace(/-/g, '+').replace(/_/g, '/')
             .padEnd(payload.length + ((4 - (payload.length % 4)) % 4), '=');
         return JSON.parse(new TextDecoder().decode(GLib.base64_decode(padded)));
@@ -293,6 +245,6 @@ function jwtClaims(token) {
 function isExpired(claims) {
     const exp = Number(claims?.exp);
     if (!Number.isFinite(exp))
-        return false;   // unknown expiry: let the request decide
+        return false;   // unknown expiry: the request decides
     return exp * 1000 <= Date.now();
 }

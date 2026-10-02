@@ -1,12 +1,4 @@
-// Per-provider settings.
-//
-// They live in a relocatable schema instantiated once per provider id, at
-// /org/gnome/shell/extensions/ai-usage/providers/<id>/, so adding a provider
-// needs no schema change at all.
-//
-// This module imports nothing but Gio and usage.js on purpose: prefs.js runs
-// in its own process, without the shell's imports, and has to be able to load
-// it.
+// Imports only Gio and usage.js: prefs.js loads it.
 
 import Gio from 'gi://Gio';
 
@@ -15,14 +7,7 @@ import {severityFor} from './usage.js';
 const PROVIDER_SCHEMA = 'org.gnome.shell.extensions.ai-usage.provider';
 const PROVIDER_PATH = '/org/gnome/shell/extensions/ai-usage/providers';
 
-// The extension's own schemas are not in the system directory, so the source is
-// built against the extension's schemas/ -- with the default source as its
-// parent, so a lookup still falls through to the system schemas.
-//
-// The missing-directory case is the shell's own: a user extension has a
-// schemas/ subfolder, and one installed system-wide in the same prefix as the
-// shell has its schemas in the default source instead. Without this, that
-// second kind of install throws here rather than working.
+// A system-wide install has no schemas/ of its own; its schemas are in the default source.
 function schemaSource(extensionDir) {
     const defaultSource = Gio.SettingsSchemaSource.get_default();
     const schemaDir = extensionDir.get_child('schemas');
@@ -44,8 +29,6 @@ export function providerSettings(extensionDir, providerId) {
     });
 }
 
-// What the pop-up should leave out for this provider, gathered once so that
-// neither the renderer nor the provider modules read settings themselves.
 export function displayOptions(settings) {
     return {
         showPerModel: settings.get_boolean('show-per-model'),
@@ -54,9 +37,7 @@ export function displayOptions(settings) {
     };
 }
 
-// The switches worth showing for a provider: the ones its capabilities say it
-// can honour. Keeping this beside the schema means the preferences never offer
-// a switch that would do nothing.
+// The preferences offer only the switches a provider's capabilities can honour.
 const PROVIDER_KEYS = [
     {key: 'show-per-model', title: 'List per-model limits', capability: 'perModel'},
     {key: 'show-breakdown', title: 'Show where the usage went', capability: 'breakdown'},
@@ -67,16 +48,8 @@ export function keysFor(provider) {
     return PROVIDER_KEYS.filter(k => provider.capabilities?.[k.capability]);
 }
 
-// The display switches and the colour thresholds, applied in one place so
-// that neither the provider modules nor the renderer read settings themselves.
-// A provider hands back each limit with only the severity the service itself
-// reported; the user's thresholds are laid over it here, so moving one is a
-// redraw and not a request.
-//
-// This returns a *view* -- a shallow copy sharing the prototype, so the getters
-// still work -- and never touches the Reading it was given. Filtering in place
-// would throw the hidden rows away, and turning a switch back on would then
-// show nothing until the next poll happened to come round.
+// The display switches and thresholds, as a view that leaves the Reading whole,
+// so turning a switch back on needs no new request.
 export function applyOptions(reading, options, thresholds) {
     const graded = row => ({...row, severity: severityFor(row.percent, thresholds, row.severity)});
 

@@ -1,27 +1,5 @@
-// Claude, by way of Claude Code's own login.
-//
-// Claude Code's `/usage` is a GET of /api/oauth/usage with the OAuth access
-// token it stored at sign-in; this asks the same question with the same token
-// and gets the same figures back, which is the point -- the button agrees with
-// the terminal because it is not a second reckoning of anything.
-//
-// Two things about that token decide the shape of this file:
-//
-//   * It is short-lived, a few hours, and Claude Code refreshes it when it runs
-//     and rewrites the file. So the file is read on every poll and the token is
-//     never held between polls -- caching it would mean sending a stale one.
-//
-//   * Refreshing it rotates the refresh token. If this extension did that
-//     refresh, Claude Code could be left holding a refresh token that has been
-//     spent, which signs the user out of their terminal. So it never refreshes:
-//     when the token is rejected it reports EXPIRED and asks the user to run
-//     Claude Code, which refreshes it as a side effect of starting.
-//
-// The plan name comes from a second file, ~/.claude.json, for the reason given
-// over readAccountTier(): the tier in the credentials is stamped there at
-// sign-in and never rewritten, so on an upgraded account it is simply wrong.
-// A file read rather than a second request -- the poll stays one HTTP call, and
-// this still only ever reads what the tool already stored.
+// The request Claude Code's /usage makes, with its stored token. The token is
+// never refreshed here: that rotates the refresh token and signs Claude Code out.
 
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
@@ -31,23 +9,15 @@ import {detect, failureReading, parseTimestamp, readText, reading, unknownShapeR
 
 const USAGE_URL = 'https://api.anthropic.com/api/oauth/usage';
 
-// The beta header Claude Code sends with an OAuth token. This endpoint answers
-// without it today, but it is sent anyway: looking exactly like the tool whose
-// login this is means a tightening on the service's side does not single this
-// out. A bad token gets a 401 here, which is what Status.EXPIRED maps.
+// Not required today; sent to look exactly like Claude Code.
 const OAUTH_BETA = 'oauth-2025-04-20';
 
 const CLI = 'claude';
 
-// The kinds seen in the `limits` array, in the order they should be listed.
-// Anything else is shown too, under a label made from its own name: the array
-// is the service's own curated list for its usage screen, so a new entry in it
-// is a real limit worth showing rather than something internal.
+// Listing order; an unknown kind is listed last under its own name.
 const KIND_ORDER = ['session', 'weekly_all', 'weekly_scoped'];
 
-// Claude Code's own words for these rows, so that the pop-up and the terminal
-// name the same limit the same way. They are Claude's and no one else's: the
-// other providers keep their own wording.
+// Claude Code's own words for these rows.
 const KIND_LABELS = {
     session: '5-hour limit',
     weekly_all: 'Weekly · all models',
@@ -61,8 +31,6 @@ export const ClaudeProvider = {
     cliName: 'Claude Code',
     icon: 'claude-symbolic',
 
-    // What this provider can actually report, so the preferences only offer
-    // switches it can honour.
     capabilities: {
         perModel: true,     // weekly_scoped rows, one per model
         breakdown: true,    // seven_day_breakdown
@@ -73,16 +41,11 @@ export const ClaudeProvider = {
         return detect(CLI);
     },
 
-    // The file to watch: Claude Code rewriting it means the token was refreshed,
-    // which is both a good moment to poll again and the thing that clears an
-    // EXPIRED state.
     credentialsFile() {
         return Gio.File.new_for_path(
             GLib.build_filenamev([GLib.get_home_dir(), '.claude', '.credentials.json']));
     },
 
-    // Claude Code's own account state, which is where the current plan is. Not
-    // watched: it is read alongside the credentials on every poll.
     accountFile() {
         return Gio.File.new_for_path(
             GLib.build_filenamev([GLib.get_home_dir(), '.claude.json']));
@@ -103,7 +66,7 @@ export const ClaudeProvider = {
             }, cancellable);
         } catch (e) {
             if (e instanceof Gio.IOErrorEnum)
-                throw e;   // cancelled: the caller is disabling or superseding us
+                throw e;   // cancelled
             return failureReading(this, e, planLabel(auth));
         }
 
@@ -135,10 +98,6 @@ export const ClaudeProvider = {
     },
 };
 
-// ---- the response -----------------------------------------------------------
-
-// `limits` is the modern shape, and the one Claude Code's own usage screen is
-// built from: one row per limit, already carrying a percentage and a severity.
 function limitFromRow(row) {
     const kind = typeof row?.kind === 'string' ? row.kind : null;
     const percent = numberOrNull(row?.percent);
@@ -152,25 +111,18 @@ function limitFromRow(row) {
         severity: row.severity,
         resetsAt: parseTimestamp(row.resets_at),
         active: row.is_active === true,
-        // Any scope at all means this row is metered against something
-        // narrower than the account, which is the distinction the "per-model
-        // limits" switch makes -- a row scoped by surface counts too, or the
-        // switch could not hide it.
+        // Scoped by model or by surface: either way the per-model switch hides it.
         scoped: !!row?.scope,
     });
 }
 
 function labelForRow(kind, row) {
     const base = KIND_LABELS[kind] ?? humanise(kind);
-    // A scoped limit is only meaningful with its scope named: two rows both
-    // saying "Weekly" at different percentages would read as a bug. The scope
-    // is usually a model; a surface is the other shape seen.
     const scope = row?.scope?.model?.display_name ?? row?.scope?.surface?.display_name;
     return scope ? `${base} · ${scope}` : base;
 }
 
-// The older top-level windows, kept as a fallback in case `limits` goes away
-// again. Same numbers, less metadata.
+// The older top-level windows, in case `limits` goes away again.
 function limitsFromWindows(body) {
     const windows = [
         ['session', KIND_LABELS.session, body?.five_hour, false],
@@ -195,8 +147,6 @@ function limitsFromWindows(body) {
     return limits;
 }
 
-// Where the week went: Claude Code against chats against everything else. Only
-// worth showing when something is actually in it.
 function breakdownFrom(body) {
     const rows = body?.seven_day_breakdown?.rows;
     if (!Array.isArray(rows))
@@ -206,17 +156,12 @@ function breakdownFrom(body) {
         .map(row => ({label: row.display_name, percent: Number(row.percent)}));
 }
 
-// Paid-for usage past the plan's limits. Absent for most accounts.
 function creditsFrom(body) {
     const extra = body?.extra_usage;
     if (!extra || typeof extra !== 'object')
         return null;
 
-    // Turned off is still a reading, and saying so beats a switch in the
-    // preferences that is on and draws nothing. It is all that can be said,
-    // though: switched off, the service sends no balance and no limit, so
-    // there is no bar and no figure -- only "off" and what has been spent.
-    // `percent: null` is what tells the renderer to draw it that way.
+    // Switched off, the service sends no figure: a row with no bar (percent null).
     if (!extra.is_enabled) {
         const spent = money(body?.spend?.used);
         return {
@@ -226,10 +171,7 @@ function creditsFrom(body) {
         };
     }
 
-    // The figure and its severity must come from the same place, or a 0% bar
-    // ends up coloured as a warning. spend.percent is the partner of
-    // spend.severity; extra_usage.utilization is the fallback. With neither
-    // there is no honest bar to draw, so there is no row.
+    // spend.percent goes with spend.severity, or a 0% bar is coloured as a warning.
     const percent = numberOrNull(body?.spend?.percent) ?? numberOrNull(extra.utilization);
     if (percent === null)
         return null;
@@ -257,17 +199,13 @@ function kindRank(id) {
     return index === -1 ? KIND_ORDER.length : index;
 }
 
-// "weekly_all" -> "Weekly all". Only reached for a kind this version has not
-// seen, so it is a readable last resort rather than a nice label.
+// "weekly_all" -> "Weekly all".
 function humanise(kind) {
     const words = kind.replace(/[_-]+/g, ' ').trim();
     return words.charAt(0).toUpperCase() + words.slice(1);
 }
 
-// ---- the stored login -------------------------------------------------------
-
-// Read fresh every poll, and nothing from it is kept: the token is handed
-// straight to the request and goes out of scope. Never logged, at any verbosity.
+// Read fresh every poll and never kept or logged.
 function readCredentials() {
     const contents = readText(ClaudeProvider.credentialsFile(), 'Claude credentials');
     if (contents === null)
@@ -284,27 +222,13 @@ function readCredentials() {
             accountTier: readAccountTier(ClaudeProvider.accountFile()),
         };
     } catch {
-        // A half-written file -- Claude Code refreshing the token as we read.
-        // The next poll, which the file monitor is about to trigger, gets it.
+        // Half-written while Claude Code refreshes it; the file monitor reads again.
         return null;
     }
 }
 
-// The plan, from the account state Claude Code keeps in ~/.claude.json.
-//
-// The tier in the credentials file is written when the login is created and is
-// never rewritten, so an account that has since changed plan reports the plan
-// it signed up on -- a Max 20x account reading as "Max 5x". This file carries
-// its own `profileFetchedAt` and Claude Code refreshes it when it starts, so it
-// is the current one. The usage response itself has no plan field at all, and a
-// second request for one would cost a round trip on every poll.
-//
-// It is a largish file of things this extension has no business with, so only
-// the tier is taken from it, nothing is kept, and nothing is ever written back.
-// Absent, half-written, or simply without an `oauthAccount` -- Claude Code has
-// been installed but never signed in -- are all ordinary, and each falls
-// through to the credentials rather than throwing: a missing plan name is fine,
-// a wrong one is not.
+// The current plan, from ~/.claude.json: the credentials' tier is stamped at
+// sign-in and never rewritten.
 export function readAccountTier(file) {
     const contents = readText(file, 'Claude account file');
     if (contents === null)
@@ -312,12 +236,9 @@ export function readAccountTier(file) {
 
     try {
         const account = JSON.parse(contents)?.oauthAccount;
-        // The limits are metered against the organisation, so its tier is the
-        // one that governs; userRateLimitTier is what a personal account has.
         return tierString(account?.organizationRateLimitTier) ??
             tierString(account?.userRateLimitTier);
     } catch {
-        // Half-written, or not the shape this version knows.
         return null;
     }
 }
@@ -326,18 +247,12 @@ function tierString(value) {
     return typeof value === 'string' && value ? value : null;
 }
 
-// "default_claude_max_5x" -> "Max (5x)", which is how Claude Code's own usage
-// panel writes it. Cosmetic, and dropped entirely if no source yields a shape
-// we recognise, since a wrong plan name is worse than none. The live tier
-// first, then the one frozen into the credentials at sign-in, then the bare
-// subscription name.
+// "default_claude_max_5x" -> "Max (5x)", as Claude Code writes it.
 export function planLabel(auth) {
     const tier = tierString(auth?.accountTier) ?? tierString(auth?.rateLimitTier);
     if (tier) {
         const cleaned = tier.replace(/^default_claude_/, '').replace(/_/g, ' ').trim();
         if (cleaned) {
-            // The multiplier is bracketed and the rest is left alone, so a tier
-            // that carries no multiplier -- "pro" -- still comes out as "Pro".
             return cleaned.replace(/^\w/, c => c.toUpperCase())
                 .replace(/ (\d+x)$/, ' ($1)');
         }

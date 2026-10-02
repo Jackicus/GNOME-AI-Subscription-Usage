@@ -55,10 +55,16 @@ provider until a token is rejected) then `retrieveUserQuotaSummary`.
 1. Find the request the CLI makes for its own usage command (`strings` over the
    binary, grepped for `usage`/`limit`, is how `/api/oauth/usage` was found),
    and where the tool stores its login.
-2. Write `src/lib/providers/<id>.js` mapping the response onto `Limit`s, with
-   `capabilities` and optionally `icon` (`src/icons/<name>.svg`), using
+2. Write `src/lib/providers/<id>.js` mapping the response onto `Limit`s, using
    `common.js` for detection, Readings, file reads, timestamps and failures.
-   Contract: never throw (return a `Reading` with a `Status`), never write to the
+   The provider is an object: `id` (the settings path and the panel role),
+   `displayName`, `cli` (looked for on `PATH`) and `cliName` (named in the
+   sign-in message), optionally `icon` (a file in `src/icons/`, without `.svg`:
+   a plain string, so the preferences can load the module), `capabilities`
+   (which of `perModel`, `breakdown`, `credits` it can honour), `detect()`,
+   `credentialsFile()` (watched, so the tool's refresh is read at once) and
+   `read(http, cancellable)`, resolving to a `Reading`, the login read afresh
+   each call. Contract: never throw (return a `Reading` with a `Status`), never write to the
    provider's files, never log in, and pull nothing of St, Clutter or Soup into
    the prefs process — read `e.status` duck-typed, as `failureReading()` does.
    `make imports` enforces the last.

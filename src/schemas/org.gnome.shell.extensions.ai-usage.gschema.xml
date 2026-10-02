@@ -19,47 +19,42 @@
 
     <schema path="/org/gnome/shell/extensions/ai-usage/" id="org.gnome.shell.extensions.ai-usage">
 
-        <!-- What a button shows -->
         <key name="primary-limit" enum="org.gnome.shell.extensions.ai-usage.primary-limit">
             <default>'session'</default>
             <summary>Which limit a button shows</summary>
-            <description>A pop-up always lists every limit; this is the one figure on the button itself. "session" is the default: the current session -- Claude's 5-hour window -- is the limit that decides whether you can keep working right now, which is what a glance at the top bar is asking. A provider with no session limit falls back to its highest. "highest": whichever limit is closest to being used up, wherever it comes from. "weekly": the week's own limit, ignoring the per-model ones.</description>
+            <description>"session": the current session; "weekly": the week's whole-account limit; each falls back to the highest. "highest": the limit closest to being used up.</description>
         </key>
         <key name="show-percent" type="b">
             <default>true</default>
             <summary>Show the percentage beside the icon</summary>
-            <description>With this off a button is its icon alone, tinted by how much has been used, and the figures are in the pop-up.</description>
+            <description>With this off a button is its icon alone, tinted by how much has been used.</description>
         </key>
 
-        <!-- What the pop-up says -->
         <key name="reset-format" enum="org.gnome.shell.extensions.ai-usage.reset-format">
             <default>'auto'</default>
             <summary>How a reset time is worded</summary>
-            <description>"auto" is what Claude Code's own usage panel does, and the default here: a countdown while the reset is less than a day away ("Resets in 1 hr 1 min"), and a weekday and wall-clock time beyond that ("Resets Tue 3:00 PM"). "relative" is always the countdown, "absolute" always the time, and "both" is the countdown with the time after it in brackets. The time is in your own timezone, on the 12- or 24-hour clock your desktop is set to. Notifications use the same wording.</description>
+            <description>"auto": a countdown under a day away, then a weekday and time. "relative": the countdown. "absolute": the time. "both": the countdown, then the time in brackets.</description>
         </key>
 
-        <!-- Where the buttons sit -->
         <key name="panel-box" enum="org.gnome.shell.extensions.ai-usage.panel-box">
             <default>'right'</default>
             <summary>Which end of the top bar the buttons sit at</summary>
-            <description>"right" puts them among the status icons, "center" beside the clock, "left" beside Activities. They all go in the same end, side by side.</description>
+            <description>"right" among the status icons, "center" beside the clock, "left" beside Activities.</description>
         </key>
         <key name="panel-index" type="i">
             <default>0</default>
             <range min="-1" max="20"/>
             <summary>Position within that end of the top bar</summary>
-            <description>Where the first button goes, the rest following it in order: 0 is the end nearest the middle of the bar; -1 puts them last. Which neighbours they land between depends on what other extensions have put there.</description>
+            <description>Where the first button goes: 0 is the end nearest the middle of the bar; -1 puts them last.</description>
         </key>
 
-        <!-- Reading the numbers -->
         <key name="poll-seconds" type="i">
             <default>300</default>
             <range min="60" max="3600"/>
             <summary>Seconds between readings</summary>
-            <description>How often to ask the provider for the figures. Opening the pop-up reads them again once they are a minute old, and so does the stored login changing, so a long interval here still gives you fresh numbers when you look.</description>
+            <description>Opening the pop-up, or the stored login changing, also reads the figures again.</description>
         </key>
 
-        <!-- Colour and warnings -->
         <key name="warn-percent" type="i">
             <default>80</default>
             <range min="1" max="100"/>
@@ -74,40 +69,33 @@
             <default>0</default>
             <range min="0" max="100"/>
             <summary>Percentage at which to send a notification</summary>
-            <description>0 turns notifications off. Above 0, crossing that percentage notifies once per limit, and not again until that limit resets.</description>
+            <description>0 turns notifications off. Otherwise once per limit, until that limit resets.</description>
         </key>
 
     </schema>
 
-    <!-- One instance per provider, at
-         /org/gnome/shell/extensions/ai-usage/providers/<id>/. Relocatable so
-         that adding a provider needs no schema change: the extension and the
-         preferences both instantiate it against the provider's own id.
-
-         Not every key applies to every provider -- a provider that has no
-         per-model limits, or cannot say where its usage went, declares as much
-         in its `capabilities`, and the preferences only offer the switches it
-         can actually honour. -->
+    <!-- Relocatable: one instance per provider at
+         /org/gnome/shell/extensions/ai-usage/providers/<id>/. -->
     <schema id="org.gnome.shell.extensions.ai-usage.provider">
         <key name="enabled" type="b">
             <default>true</default>
             <summary>Read this provider</summary>
-            <description>Turning a provider off stops it being read at all, and takes its button with it. A provider whose command-line tool is not installed is left out whatever this says.</description>
+            <description>Off, the provider is not read and has no button. A provider whose command-line tool is not installed is left out either way.</description>
         </key>
         <key name="show-per-model" type="b">
             <default>true</default>
             <summary>List the per-model limits</summary>
-            <description>Some providers meter each model separately as well as the account as a whole. With this off only the whole-account limits are listed.</description>
+            <description>With this off only the whole-account limits are listed.</description>
         </key>
         <key name="show-breakdown" type="b">
             <default>true</default>
             <summary>Show where the usage went</summary>
-            <description>A line naming which of the provider's surfaces the period's usage came from, when the provider reports it.</description>
+            <description>A line naming which of the provider's surfaces the period's usage came from.</description>
         </key>
         <key name="show-credits" type="b">
             <default>true</default>
             <summary>Show paid-for extra usage</summary>
-            <description>Usage bought beyond the plan's limits, when the provider reports it and you have it turned on with them.</description>
+            <description>Usage bought beyond the plan's limits, when the provider reports it.</description>
         </key>
     </schema>
 </schemalist>

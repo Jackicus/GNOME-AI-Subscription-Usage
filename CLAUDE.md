@@ -21,9 +21,8 @@ own command-line tool has already stored, and does nothing else with it:
   file when it refreshes, so a cached token is a stale one.
 * Nothing is ever written to a provider's files; no token is logged, ever.
 
-Each provider's endpoint, its traps and how to add one are in
-`.claude/rules/providers.md`; the provider contract is the header of
-`src/lib/providers/registry.js`.
+Each provider's endpoint, its traps, the provider contract and how to add one
+are in `.claude/rules/providers.md`.
 
 ## Layout
 
@@ -44,7 +43,7 @@ src/lib/settings.js     per-provider settings, capabilities -> switches, and
                         applyOptions(). Imports only Gio and usage.js (prefs)
 src/lib/http.js         one libsoup session; getJson/postJson; HttpError(status)
 src/lib/log.js          debug (verbose only) / warn / error, "[AI Usage]" prefix
-src/lib/providers/registry.js     which providers exist; the provider contract
+src/lib/providers/registry.js     which providers exist
 src/lib/providers/common.js       detect, reading, readText, parseTimestamp,
                                   failureReading, unknownShapeReading
 src/lib/providers/claude.js       Claude, via Claude Code's stored login

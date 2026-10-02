@@ -1,5 +1,4 @@
-// One place that decides whether the extension talks to the journal, so the
-// development entry point can turn it up without every module knowing.
+// scripts/dev-extension.js turns debug on.
 
 let verbose = false;
 
