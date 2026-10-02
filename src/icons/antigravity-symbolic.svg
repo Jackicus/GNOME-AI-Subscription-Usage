@@ -1,12 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="#2e3436">
-<!-- Google Antigravity's mark, drawn as a GNOME symbolic icon: one colour, no strokes, sized for
-     a 16px top bar. Path taken from Boxicons (MIT), https://boxicons.com.
-     The mark is a trademark of its owner and is used here only to say which
-     service a button's figure belongs to. No affiliation or endorsement. -->
-<!-- The comment sits INSIDE the element on purpose: gdk-pixbuf identifies a
-     file by sniffing its first bytes, and a comment before <svg> pushes the tag
-     out of that window, so the icon silently fails to load. -->
+<!-- Google Antigravity's mark; path from Boxicons (MIT), https://boxicons.com.
+     A trademark of its owner, used to name the service. No affiliation or endorsement. -->
     <title>Antigravity</title>
     <path d="M19.94 20.59c1.09.82 2.73.27 1.23-1.23C16.67 15 17.62 3 12.03 3S7.39 15 2.89 19.36c-1.64 1.64.14 2.05 1.23 1.23c4.23-2.86 3.95-7.91 7.91-7.91s3.68 5.05 7.91 7.91"/>
 </svg>

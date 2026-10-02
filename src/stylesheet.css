@@ -1,70 +1,27 @@
-/* GNOME Shell's menus follow the light and dark preference, so nothing here
-   hardcodes a foreground colour: the ordinary text inherits the theme's, the
-   dimmed text is dimmed with actor opacity from indicator.js (St has no CSS
-   opacity), and the one flat colour that is needed -- the empty part of a bar
-   -- is a mid grey that sits correctly on either.
+/* Sizes are taken from the shell's own theme (.popup-menu-item, .quick-settings,
+   .slider, #panel .panel-button). No foreground colour is hardcoded. */
 
-   The numbers are not estimates either. Everything sized here is sized to a
-   figure taken out of the shell's own theme -- `.popup-menu-item`'s 9px 12px,
-   `.quick-settings`'s 18px, `.slider`'s 4px, `#panel .panel-button`'s
-   -minimum-hpadding -- so that a pop-up opened beside Quick Settings reads as
-   the same piece of furniture rather than something next to it. */
-
-/* The top-bar button */
-
-/* The shell gives every panel button 12px of padding either side. Around a
-   16px icon with a two- or three-character figure beside it that is more room
-   than either needs, and the effect is a button whose edge sits a long way
-   from its own number. 6px is the shell's own `-minimum-hpadding` -- what it
-   falls back to when the top bar runs out of room. 8px, because zeroing the
-   icon's margin below takes 4px off the left of every button and two buttons
-   side by side then sit closer to each other than the shell's own do: 8px
-   either side keeps them apart while still being well under the 12px that made
-   the button look detached from its own number.
-
-   Two classes and the id, so this outweighs `#panel .panel-button` whatever
-   order the two stylesheets happen to load in. */
+/* Under the shell's 12px, so the button's edge stays near its figure; two
+   classes and the id outweigh #panel .panel-button in either load order. */
 #panel .panel-button.ai-usage-panel-button {
     -natural-hpadding: 8px;
 }
 
-/* `.system-status-icon` carries 6px of padding either side, which is the shell
-   sizing a button that is an icon and nothing else. This one has a figure
-   beside it, and that padding is what was holding the two apart: the icon read
-   as one thing and its own percentage as another. The shell has the same
-   problem wherever it puts several icons in one button and answers it the same
-   way -- `.panel-status-indicators-box > .system-status-icon { padding: 0 }`.
-
-   The margin has to go with it, and that is the less obvious half. A margin is
-   symmetrical about the icon, but the icon is not symmetrically placed: the
-   space it adds on the left lands against the button's edge, while the space
-   it adds on the right lands in the gap before the figure. So it made the
-   button lopsided -- 6px of padding plus 4px of margin before the icon,
-   against 6px of padding after the figure -- which is visible as soon as the
-   button is pointed at. With the margin gone the two edges are the padding and
-   nothing else, and the one gap inside is the box's own spacing. */
 .ai-usage-panel-box {
     spacing: 4px;
 }
 
+/* As the shell's .panel-status-indicators-box does; the margin made the button lopsided. */
 .ai-usage-panel-box .system-status-icon {
     padding: 0;
     margin: 0;
 }
 
 .ai-usage-panel-label {
-    font-feature-settings: "tnum";  /* so the width does not jitter as the figure changes */
+    font-feature-settings: "tnum";
 }
 
-/* Severity is a colour, on the button and on the figures in the pop-up. The
-   normal case takes no colour at all -- it inherits the panel's foreground,
-   which keeps the button looking like part of the shell rather than a badge.
-
-   These two are the only hardcoded colours here, and they are deliberate: they
-   are GNOME's own palette -- Yellow 5 and Red 4 -- which is what the shell's
-   theme uses for exactly these meanings, and both read correctly on a light
-   menu and a dark one. They are not arbitrary hex values to be tidied into
-   theme colours; St has no named colour for "warning" to use instead. */
+/* GNOME's Yellow 5 and Red 4: St names no warning colour. */
 .ai-usage-warning {
     color: #e5a50a;
 }
@@ -73,38 +30,17 @@
     color: #e01b24;
 }
 
-/* The pop-up */
-
-/* How wide the whole thing is. The reference is the menu this one sits beside:
-   a Quick Settings panel is two `.quick-toggle` tiles at `min-width: 12em`
-   with the grid's 12px between them, inside `.quick-settings`'s 18px of
-   padding -- 24em plus 48px, a little over 27em. In em rather than pixels so
-   that a desktop with the text scaled up gets a wider menu rather than a
-   cramped one.
-
-   Set on the menu's own box, which is the actor the shell gives
-   `.popup-menu-content` to, so every row in it is laid out against the full
-   width and they all end on the same edge. */
+/* A Quick Settings panel's width: two 12em tiles, 12px apart, in 18px of padding. */
 .ai-usage-menu {
     min-width: 27em;
 }
 
-/* `.popup-menu-content` pads the menu by 6px and `.popup-menu-item` pads each
-   row by 12px, so the space from the edge of the pop-up to the start of a row
-   is already the 18px `.quick-settings` puts round itself. The top and bottom
-   are this file's to match, and they are measured off the picture rather than
-   added up here, because what the eye sees at the top is not the box: the
-   header's first line has 3px of leading over its cap height, while the last
-   row ends in a bar, which is solid to its own edge. So the top takes 9px and
-   the bottom 12px, and the white space comes out at 19px on all four sides. */
+/* With .popup-menu-content's 6px, 19px of white space on all four sides as seen. */
 .ai-usage-header {
     padding-top: 9px;
     padding-bottom: 6px;
 }
 
-/* Name, plan, and the actions hard right. 8px is what keeps the plan a thing
-   beside the name rather than part of it; the slack between the plan and the
-   buttons is the row's own, not this spacing. */
 .ai-usage-header-row {
     spacing: 8px;
 }
@@ -117,36 +53,22 @@
     font-size: 0.9em;
 }
 
-/* The shell's own row, unaltered: `.popup-menu-item { padding: 9px 12px; }`.
-   Said again rather than left to be inherited, because it is a deliberate
-   choice to space these like menu rows and not more tightly. */
+/* .popup-menu-item's own 9px. */
 .ai-usage-limit {
     padding-top: 9px;
     padding-bottom: 9px;
 }
 
-/* Name, reset, percentage. The gap has to be wide enough that a long name and
-   a long reset time do not read as one string. */
 .ai-usage-limit-row {
     spacing: 12px;
 }
 
-/* Every limit's name, in bold. Weight used to say which limit was in force,
-   and it no longer does: Claude Code's own panel does not distinguish them
-   that way either, and a pop-up in which two of three names are lighter reads
-   as two of them being less important rather than as one being current. */
 .ai-usage-limit-label {
     font-size: 0.95em;
     font-weight: bold;
 }
 
-/* The width of this cell is what makes the percentages line up down the right
-   edge: it is the only column with a size of its own, so the two beside it keep
-   the same edges from row to row. Wide enough for "100%" at this size, with the
-   figure aligned to the end of it from indicator.js. In em rather than pixels
-   so that it still holds "100%" on a desktop with the text scaled up. The cell
-   is an St.BoxLayout, not an St.Bin: a bin centres the figure whatever its
-   x_align says, leaving it short of the bar's right end below. */
+/* The one fixed-width column, wide enough for "100%", so the columns line up. */
 .ai-usage-limit-percent {
     min-width: 3.5em;
 }
@@ -160,59 +82,22 @@
     font-size: 0.95em;
 }
 
-/* The two actions, at the right-hand end of the first header. `icon-button
-   flat` is the shell's own pair of classes, set on the buttons themselves, so
-   the colours, the hover, the focus ring, :insensitive and :checked all come
-   from the theme and go on coming from it when the theme changes -- and `flat`
-   is what makes the resting background the menu's own, so that nothing is drawn
-   round the glyph until it is pointed at. Nothing of that is repeated here.
-
-   What is repeated is the one thing the class gets from its surroundings rather
-   than from itself: its padding. `.icon-button`'s own is 0.818em, which around
-   a 16px icon is the circle these used to be; the shell cuts it to 6px for the
-   arrow at the end of a `.quick-slider` row, and this is that arrow. 6px stays
-   across, and 2px down -- so the button is 20px tall, which is the header's own
-   text, and the row does not grow to hold it.
-
-   The glyph therefore sits 6px in from the row's edge, where the percentages
-   below it are flush with it. That is the shell's own arrangement and it is
-   left alone: a negative margin to pull it back out makes St compute a
-   negative preferred width for the whole menu -- the shell logs "tried to
-   allocate a size of -2147483648" and the pop-up opens with nothing drawn in
-   it at all. 6px of padding is the button's click target, and it is worth
-   more than 6px of alignment.
-
-   The `.icon-button` rule is a descendant selector for the same reason the
-   shell writes its own -- so it outweighs the plain `.icon-button` rule
-   whatever order the two stylesheets happen to load in. */
 .ai-usage-action-row {
     spacing: 2px;
 }
 
+/* The shell's padding for the arrow at the end of a .quick-slider row, 2px
+   down so the header does not grow. A negative margin breaks the menu's width. */
 .ai-usage-action-row .icon-button {
     padding: 2px 6px;
 }
 
-/* Header furniture, not the subject, so a little under the shell's own glyph:
-   `.icon-button StIcon` is `icon-size: 1.091em`, which is 16px, and this is
-   14px at the same base. In em for the same reason the shell writes it that
-   way. The button does not shrink with it -- `.icon-button`'s `min-height` is
-   still 1.091em -- so the header row is exactly as tall as it was. The dimming
-   that goes with this is actor opacity from indicator.js, St having no CSS
-   opacity. */
+/* 14px against .icon-button StIcon's 16px. */
 .ai-usage-action-row .icon-button StIcon {
     icon-size: 0.955em;
 }
 
-/* The shell's own slider, which is the nearest thing it draws to this:
-   `.slider { -barlevel-height: 4px; }`, and pills everywhere else -- so 4px
-   tall with `border-radius: 999px` on the track and on the fill both. The
-   empty part is barely there: what the eye should catch is the fill, not the
-   container, and the grey is mid enough to sit correctly on a light menu and a
-   dark one alike.
-
-   6px above it is `.popup-menu-item`'s own `spacing`, which is the gap the
-   shell puts between the parts of a row. */
+/* .slider's 4px height; 6px above is .popup-menu-item's spacing. */
 .ai-usage-bar {
     background-color: rgba(127, 127, 127, 0.25);
     height: 4px;
@@ -220,12 +105,7 @@
     margin-top: 6px;
 }
 
-/* The accent colour is what GNOME 47 and later let the user choose, and it is
-   what the shell's own sliders fill with (`-barlevel-active-background-color`),
-   so a bar that is not warning about anything is drawn in it. The plain blue
-   before it is the fallback for a shell whose CSS does not know
-   -st-accent-color: an unknown value drops the declaration, leaving the one
-   above standing. */
+/* The plain blue is for a shell that does not know -st-accent-color. */
 .ai-usage-bar-fill {
     height: 4px;
     border-radius: 999px;
@@ -250,11 +130,7 @@
     padding-bottom: 6px;
 }
 
-/* The last row in the pop-up, whichever kind of row that turns out to be --
-   indicator.js marks it, because St has no `:last-child`. This is what closes
-   the pop-up off: 12px here and 6px from `.popup-menu-content` is the same 18px
-   the sides already have, and it has to outweigh the padding the row's own
-   class gives it, so it is last in this file. */
+/* With .popup-menu-content's 6px, the sides' 18px. Last, to outweigh the row's own padding. */
 .ai-usage-last {
     padding-bottom: 12px;
 }

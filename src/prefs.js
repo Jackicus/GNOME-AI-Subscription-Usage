@@ -1,6 +1,3 @@
-// Preferences. Everything here binds straight to a GSettings key, so there is
-// no state of its own to keep in step.
-
 import Adw from 'gi://Adw';
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
@@ -10,11 +7,6 @@ import {ExtensionPreferences} from 'resource:///org/gnome/Shell/Extensions/js/ex
 
 import {allProviders} from './lib/providers/registry.js';
 import {keysFor, providerSettings} from './lib/settings.js';
-
-// prefs.js runs in its own process, without the shell's imports, so it can only
-// load modules that stay clear of St and of the shell's resource:// paths. The
-// provider registry does -- deliberately -- so the list of providers here is
-// the real one rather than a copy kept in step by hand.
 
 export default class AiUsagePreferences extends ExtensionPreferences {
     fillPreferencesWindow(window) {
@@ -138,7 +130,6 @@ export default class AiUsagePreferences extends ExtensionPreferences {
                 : `${tool} is not installed — this provider is left out`,
         });
 
-        // The header switch is `enabled`; the rows inside are what to show.
         let settings = null;
         try {
             settings = providerSettings(this.dir, provider.id);
@@ -149,19 +140,13 @@ export default class AiUsagePreferences extends ExtensionPreferences {
 
         const toggle = new Gtk.Switch({
             valign: Gtk.Align.CENTER,
-            // A provider whose tool is missing cannot be read whatever the
-            // switch says, so the switch does not pretend otherwise.
             sensitive: path !== null,
         });
         settings.bind('enabled', toggle, 'active', Gio.SettingsBindFlags.DEFAULT);
         row.add_suffix(toggle);
 
-        // Only the switches this provider can actually honour: its capabilities
-        // decide, so a provider with no per-model limits is never offered one.
         for (const key of keysFor(provider)) {
             const child = switchRow(settings, key.key, key.title);
-            // A provider switched off is not read, so what it would show is
-            // moot: the rows stay, insensitive, rather than vanishing.
             settings.bind('enabled', child, 'sensitive', Gio.SettingsBindFlags.GET);
             row.add_row(child);
         }
@@ -169,8 +154,6 @@ export default class AiUsagePreferences extends ExtensionPreferences {
         return row;
     }
 }
-
-// ---- rows -------------------------------------------------------------------
 
 function switchRow(settings, key, title, subtitle) {
     const row = new Adw.SwitchRow({title, subtitle: subtitle ?? ''});
@@ -188,8 +171,7 @@ function spinRow(settings, key, title, subtitle, lower, upper, step = 1) {
     return row;
 }
 
-// Adw.ComboRow works on a position, while the setting is a nickname, so the two
-// are mapped across rather than bound.
+// Adw.ComboRow selects by position and the key holds a nick, so they are mapped by hand.
 function comboRow(settings, key, title, choices) {
     const row = new Adw.ComboRow({
         title,

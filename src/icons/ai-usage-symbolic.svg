@@ -1,13 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16">
-<!-- A gauge, open at the bottom, with the needle a little past halfway. Shipped
-     rather than named from the icon theme because Adwaita has no gauge or
-     monitor symbolic on every distribution, and a missing icon name leaves a
-     blank space in the top bar. Symbolic recolouring works off the alpha
-     channel, so the strokes take the panel's foreground colour. -->
-<!-- The comment sits INSIDE the element on purpose: gdk-pixbuf identifies a
-     file by sniffing its first bytes, and a comment before <svg> pushes the tag
-     out of that window, so the icon silently fails to load. -->
+<!-- Shipped: not every distribution's Adwaita has a gauge symbolic. -->
     <g fill="none" stroke="#000" stroke-width="1.7" stroke-linecap="round">
         <path d="M 2.83 10.38 A 5.5 5.5 0 1 1 13.17 10.38"/>
         <path d="M 8 8.5 L 9.65 5.64"/>

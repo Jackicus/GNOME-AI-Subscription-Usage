@@ -1,18 +1,3 @@
-// What holds the extension together: when to read the providers, where the
-// buttons sit, and what the settings mean.
-//
-// There is a button per live provider: a percentage belongs to a subscription,
-// so it sits beside an icon that names the subscription. A single shared
-// button could not do that -- an unlabelled figure would switch from one
-// subscription to another the moment the second overtook the first.
-//
-// The reading side is deliberately lazy. Polling on a timer is the fallback,
-// not the mechanism -- the two things that actually matter are opening the
-// pop-up (you are looking at it now) and the stored login changing on disk
-// (the tool just ran, so the figures moved). A five-minute timer between those
-// is enough to keep the panel figure honest without asking the service for
-// numbers nobody is reading.
-
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 
@@ -25,28 +10,19 @@ import {applyOptions, displayOptions, providerSettings} from './settings.js';
 import {ResetFormat, Status, formatReset} from './usage.js';
 import * as Log from './log.js';
 
-// Which limits have been notified, and for which window: limit key -> the
-// resets_at (as unix seconds) it was notified for. Module scope, not the app's,
-// because the shell disables the extension at lock and enables it again at
-// unlock, and an app built afresh would notify everything over again. It is
-// dropped when the module is, which is when the shell restarts.
+// limit key -> the resets_at (unix seconds) it was notified for. Module scope so
+// that lock and unlock, which disable and enable, do not notify again.
 const notified = new Map();
 
-// The gauge in icons/: the fallback for a provider that has been given no icon
-// of its own, or whose file is missing.
 const FALLBACK_ICON = 'ai-usage-symbolic.svg';
 
-// Past this much time with no input, a scheduled poll is skipped: nobody is
-// looking at the top bar, and opening the pop-up reads afresh anyway.
+// A scheduled poll is skipped after this long without input.
 const IDLE_SKIP_MS = 10 * 60 * 1000;
 
-// Opening a pop-up whose figures are younger than this shows them as they are
-// rather than reading again. In microseconds, which is what a GLib.DateTime
-// difference comes in.
+// Opening a pop-up re-reads only figures older than this (microseconds).
 const FRESH_FOR_US = 60 * GLib.TIME_SPAN_SECOND;
 
-// The global keys that change only how the figures are drawn. Any of them is
-// one redraw of what is already in hand, and nothing else.
+// The global keys that only change how the figures are drawn.
 const DISPLAY_KEYS = ['warn-percent', 'critical-percent', 'primary-limit', 'show-percent', 'reset-format', 'notify-percent'];
 
 export class AiUsageApp {
@@ -59,18 +35,9 @@ export class AiUsageApp {
         this._entries = [];     // {provider, settings} per live provider
         this._raw = [];         // what the providers returned, untouched
 
-        // How every button draws its figure. Held here rather than read at the
-        // point of use, so that a button built later -- a provider switched on
-        // mid-session -- starts out configured like the rest.
         this._showPercent = true;
         this._pick = reading => reading.worst;
-        // How a reset time is worded, in the pop-ups and in the notifications
-        // alike -- they are the same sentence, so they go through the same
-        // function and answer to the same setting.
         this._resetFormat = ResetFormat.AUTO;
-        // The desktop's 12/24-hour setting, which that wording is on. Owned
-        // here, created in enable() and dropped in disable(), like every other
-        // object the extension holds.
         this._interface = null;
         this._interfaceId = 0;
         this._clock = '24h';
@@ -89,8 +56,6 @@ export class AiUsageApp {
         this._watchClock();
         this._readDisplay();
 
-        // Builds the live provider list, and with it the buttons, so there is
-        // none to place here.
         this._buildEntries();
         this._watchSettings();
 
@@ -111,10 +76,6 @@ export class AiUsageApp {
         this._interfaceId = 0;
         this._interface = null;
 
-        // Disconnected by hand rather than left to garbage collection. The
-        // shell disables at lock and enables again at unlock, so a handler
-        // still attached to a surviving Gio.Settings would call into an app
-        // that has already been taken down.
         for (const {settings, handlerId} of this._providerSettingsById.values()) {
             if (settings && handlerId)
                 settings.disconnect(handlerId);
@@ -127,8 +88,6 @@ export class AiUsageApp {
             GLib.Source.remove(this._debounceId);
         this._debounceId = 0;
 
-        // Every button goes, and the handler on each one's menu with it, for
-        // the same reason: enable() builds the whole arrangement again.
         for (const key of [...this._buttons.keys()])
             this._destroyButton(key);
 
@@ -138,10 +97,6 @@ export class AiUsageApp {
         this._raw = [];
     }
 
-    // ---- settings -----------------------------------------------------------
-
-    // Everything that decides how the figures are drawn, as opposed to which
-    // providers there are or when they are read.
     _readDisplay() {
         const s = this._settings;
         this._thresholds = {
@@ -161,8 +116,6 @@ export class AiUsageApp {
         return {showPercent: this._showPercent, pick: this._pick, resetFormat: this._resetFormat, clock: this._clock};
     }
 
-    // configure() only stores, so this is one render per button however many
-    // keys changed -- and no provider is detected again, no monitor touched.
     _displayChanged() {
         this._readDisplay();
         for (const {indicator} of this._buttons.values())
@@ -170,9 +123,7 @@ export class AiUsageApp {
         this._redraw();
     }
 
-    // A provider is live when it is switched on *and* its command-line tool is
-    // installed. An absent tool leaves it out rather than showing it as an
-    // error: it is not something the user asked for and failed to get.
+    // A provider is live when it is switched on and its command-line tool is installed.
     _buildEntries() {
         this._entries = [];
         for (const provider of allProviders()) {
@@ -189,8 +140,7 @@ export class AiUsageApp {
         this._watchCredentials();
     }
 
-    // Built once per provider and kept: a Gio.Settings that goes out of scope
-    // stops delivering its 'changed' signal.
+    // Kept: a Gio.Settings that is collected stops emitting 'changed'.
     _providerSettings(id) {
         if (this._providerSettingsById.has(id))
             return this._providerSettingsById.get(id).settings;
@@ -199,8 +149,6 @@ export class AiUsageApp {
         let handlerId = 0;
         try {
             settings = providerSettings(this._extension.dir, id);
-            // Only `enabled` changes which providers exist, so it is the only
-            // switch worth a rebuild and a read; the rest are a redraw.
             handlerId = settings.connect('changed', (_s, key) => {
                 if (key !== 'enabled') {
                     this._redraw();
@@ -216,8 +164,6 @@ export class AiUsageApp {
         return settings;
     }
 
-    // The desktop's schema may be absent on a stripped-down system, in which
-    // case the clock stays 24-hour rather than the extension failing to enable.
     _watchClock() {
         const schema = Gio.SettingsSchemaSource.get_default()?.lookup('org.gnome.desktop.interface', true);
         if (!schema)
@@ -228,10 +174,6 @@ export class AiUsageApp {
             () => this._displayChanged());
     }
 
-    // Each global key does only what it is about. None of them changes which
-    // providers exist, so none re-runs detect() or touches the credential
-    // monitors -- and a credential change still waiting out its debounce gets
-    // its read.
     _watchSettings() {
         const on = (keys, handler) => {
             for (const key of keys)
@@ -242,12 +184,6 @@ export class AiUsageApp {
         on(DISPLAY_KEYS, () => this._displayChanged());
     }
 
-    // ---- the buttons --------------------------------------------------------
-
-    // Brings the buttons on screen into line with the live provider list.
-    // Switching a provider off destroys its button and leaves the others
-    // alone; switching it back on builds what is missing -- no shell restart
-    // in either case.
     _syncButtons() {
         const live = new Set(this._entries.map(e => e.provider.id));
         let changed = false;
@@ -269,12 +205,8 @@ export class AiUsageApp {
             }
         }
 
-        // Only a button appearing or going moves anything. The display
-        // switches change what a pop-up lists, not where the buttons sit.
         if (changed) {
             this._placeButtons();
-            // What is actually in the top bar, which is the first thing worth
-            // knowing when someone says nothing appeared.
             Log.debug(`Top bar: ${this._buttons.size} button(s) — ${[...this._buttons.keys()].join(', ')}`);
         }
     }
@@ -288,13 +220,8 @@ export class AiUsageApp {
             return null;
         }
 
-        // Every pop-up carries the same two actions, at the right-hand end of
-        // its header. Refresh reads every live provider, not just this
-        // button's: a person asking for a refresh means all of it.
-        //
-        // The pop-up stays open for a refresh, so that the figures can be
-        // watched changing; the preferences close it, since a window is about
-        // to open where it is.
+        // Refresh reads every provider and leaves the pop-up open to watch the
+        // figures change; the preferences close it.
         indicator.setActions([
             {label: 'Refresh now', icon: 'view-refresh-symbolic', action: () => this.refresh()},
             {label: 'Preferences', icon: 'go-next-symbolic', action: () => {
@@ -308,15 +235,12 @@ export class AiUsageApp {
         });
 
         indicator.configure(this._buttonOptions());
-        // Drawn once, with nothing read: an ellipsis on the button and
-        // "Reading usage…" in the pop-up until the figures arrive.
         indicator.setReading(null);
         return {indicator};
     }
 
-    // Destroying the indicator is what releases its panel role: the shell drops
-    // it from Main.panel.statusArea on the indicator's own 'destroy'. That is
-    // why a provider can be switched off and on again without a restart.
+    // Destroying the indicator releases its panel role, so a provider can be
+    // switched off and on again without a restart.
     _destroyButton(id) {
         const button = this._buttons.get(id);
         this._buttons.delete(id);
@@ -325,10 +249,6 @@ export class AiUsageApp {
         button.indicator.destroy();
     }
 
-    // A provider's own icon is what names the subscription a percentage belongs
-    // to, so it matters more here than it looks. `provider.icon` names a file
-    // in the extension's icons/; a provider that has none, or whose file is
-    // missing, falls back to the gauge rather than losing its button.
     _iconFile(provider) {
         const icons = this._extension.dir.get_child('icons');
         const name = typeof provider.icon === 'string' ? provider.icon.replace(/\.svg$/, '') : '';
@@ -341,15 +261,8 @@ export class AiUsageApp {
         return icons.get_child(FALLBACK_ICON);
     }
 
-    // The first placement of a button registers it with the panel; every later
-    // one is a move. They cannot both go through addToStatusArea: it claims the
-    // role for good -- the role is only released when the indicator is
-    // destroyed -- so calling it twice throws an extension point conflict.
-    // A move therefore reparents the container into the panel's box itself,
-    // which is what every extension that offers a position setting does.
-    //
-    // Placed in registry order, from `panel-index`, so that which button is
-    // where does not depend on who answered first.
+    // addToStatusArea claims the role until the indicator is destroyed, so only
+    // the first placement goes through it; a move reparents the container.
     _placeButtons() {
         const boxName = this._settings.get_string('panel-box');
         const index = this._settings.get_int('panel-index');
@@ -364,8 +277,6 @@ export class AiUsageApp {
             const parent = container.get_parent();
 
             if (!parent) {
-                // The role is claimed for the life of the indicator, so it has
-                // to be distinct per button or the second addToStatusArea throws.
                 Main.panel.addToStatusArea(`${this._extension.uuid}-${provider.id}`, button.indicator,
                     position(target, index, offset), boxName);
             } else {
@@ -376,10 +287,7 @@ export class AiUsageApp {
         }
     }
 
-    // ---- reading ------------------------------------------------------------
-
-    // Every path to fresh figures comes through here. A poll already out is
-    // cancelled rather than raced, so the newest answer is always the one shown.
+    // A read already out is cancelled, so the newest answer is the one shown.
     refresh() {
         this._cancelInFlight();
         if (!this._http || !this._entries.length) {
@@ -396,16 +304,12 @@ export class AiUsageApp {
                 return;
             Log.error('Reading usage failed', e);
         }).finally(() => {
-            // Answered, so no longer in flight, which _refreshIfStale() asks.
             if (this._cancellable === cancellable)
                 this._cancellable = null;
         });
     }
 
-    // Opening a pop-up reads afresh, unless the figures are under a minute old
-    // or a read is already out: sweeping the pointer along the buttons with a
-    // menu open would otherwise cancel and restart a round per button. The
-    // header's Refresh goes straight to refresh(), so it always reads.
+    // Sweeping the pointer along open menus would otherwise start a read per button.
     _refreshIfStale() {
         const now = GLib.DateTime.new_now_utc();
         if (this._cancellable || this._raw.some(r => now.difference(r.at) < FRESH_FOR_US))
@@ -414,8 +318,6 @@ export class AiUsageApp {
     }
 
     async _readAll(cancellable) {
-        // Providers are independent, so they go out together; a slow one does
-        // not hold up the rest.
         const readings = await Promise.all(this._entries.map(async ({provider}) => {
             try {
                 const reading = await provider.read(this._http, cancellable);
@@ -424,8 +326,6 @@ export class AiUsageApp {
             } catch (e) {
                 if (e instanceof Gio.IOErrorEnum && e.matches(Gio.IOErrorEnum, Gio.IOErrorEnum.CANCELLED))
                     throw e;
-                // A provider is not supposed to throw; if one does, that is a
-                // bug in it, and the rest of the pop-up should still work.
                 Log.error(`Provider '${provider.id}' threw`, e);
                 return null;
             }
@@ -436,17 +336,11 @@ export class AiUsageApp {
 
         this._raw = readings.filter(r => r);
         this._redraw();
-        // Notifications go off the untouched readings: a limit you chose not to
-        // list is still a limit you want to hear about before it stops you.
+        // From the untouched readings: a hidden limit still notifies.
         this._maybeNotify();
     }
 
-    // Re-applies the display switches to figures already in hand. Turning a row
-    // off costs no request, and turning it back on restores it at once, because
-    // the switches are applied to the untouched readings every time.
-    //
-    // A provider that has not answered yet is handed null, which is what puts
-    // "Reading usage…" in its pop-up.
+    // A provider that has not answered yet gets null ("Reading usage…").
     _redraw() {
         const byId = new Map(this._raw.map(reading => [reading.providerId, reading]));
         for (const {provider, settings} of this._entries) {
@@ -460,8 +354,6 @@ export class AiUsageApp {
         this._cancellable?.cancel();
         this._cancellable = null;
     }
-
-    // ---- when to read -------------------------------------------------------
 
     _schedule() {
         this._unschedule();
@@ -485,16 +377,12 @@ export class AiUsageApp {
         try {
             return global.backend.get_core_idle_monitor().get_idletime() > IDLE_SKIP_MS;
         } catch (e) {
-            // If the shell ever moves this, poll as though someone is watching
-            // rather than going quiet for good.
             Log.debug(`Could not read the idle time, assuming active: ${e.message}`);
             return false;
         }
     }
 
-    // The stored login being rewritten means the tool just ran, which is both
-    // the moment the figures moved and the moment an expired token became good
-    // again. Cheaper and far more timely than shortening the poll interval.
+    // The tool rewriting its login means the figures moved, or an expired token is good again.
     _watchCredentials() {
         this._stopWatchingCredentials();
         for (const {provider} of this._entries) {
@@ -503,8 +391,6 @@ export class AiUsageApp {
                 continue;
             try {
                 const monitor = file.monitor_file(Gio.FileMonitorFlags.NONE, null);
-                // Writers rename over the file as often as they write in place,
-                // so every event is treated the same: read again shortly.
                 monitor.connect('changed', () => this._refreshSoon());
                 this._monitors.push(monitor);
             } catch (e) {
@@ -513,17 +399,13 @@ export class AiUsageApp {
         }
     }
 
-    // Leaves a pending debounce alone: the write it is waiting out happened
-    // whatever the monitors are being rebuilt for, so it still gets its read.
     _stopWatchingCredentials() {
         for (const monitor of this._monitors)
             monitor.cancel();
         this._monitors = [];
     }
 
-    // A credential write arrives as several events in a row, and reading
-    // mid-write gets half a file. Two seconds after the last one is both
-    // settled and still immediate to a person.
+    // A credential write arrives as several events, and a read mid-write gets half a file.
     _refreshSoon() {
         if (this._debounceId)
             GLib.Source.remove(this._debounceId);
@@ -534,19 +416,11 @@ export class AiUsageApp {
         });
     }
 
-    // ---- notifications ------------------------------------------------------
-
-    // Once per limit per window. The window is identified by its reset time, so
-    // the same limit notifies again after it resets and climbs again, but not
-    // twice on the way up. The reset time is rounded to the minute by the
-    // parsers, so the service's jitter does not make a new window of it.
+    // Once per limit per window, the window being its reset time.
     _maybeNotify() {
         if (!this._notifyAt)
             return;
 
-        // Forget windows that have ended, so the set stays as small as the
-        // limits there are. A limit still past the line after its reset is
-        // reported with a new reset time, which is a new window anyway.
         const now = GLib.DateTime.new_now_utc().to_unix();
         for (const [key, resetsAt] of notified) {
             if (resetsAt !== null && resetsAt < now)
@@ -561,8 +435,6 @@ export class AiUsageApp {
                 const window = limit.resetsAt?.to_unix() ?? null;
 
                 if (limit.percent < this._notifyAt) {
-                    // Below the line again -- usually a reset -- so let it speak
-                    // next time it climbs.
                     notified.delete(key);
                     continue;
                 }
@@ -570,9 +442,6 @@ export class AiUsageApp {
                     continue;
                 notified.set(key, window);
 
-                // The same sentence the pop-up shows, from the same function
-                // and the same setting -- as its own sentence here, because
-                // "Resets" is capitalised where it starts one.
                 const when = limit.resetsAt
                     ? ` ${formatReset(limit.resetsAt, {format: this._resetFormat, clock: this._clock})}.`
                     : '';
@@ -583,11 +452,7 @@ export class AiUsageApp {
     }
 }
 
-// The button shows one figure; this is which. "session" is the default: the
-// window you are working in right now is what a glance at the top bar is
-// asking about, and the longer limits are a scroll of the eye away in the
-// pop-up. A provider that meters no session falls through to its worst, which
-// is what keeps the default meaningful for Antigravity as well as Claude.
+// A provider with no session or weekly limit falls back to its worst.
 function pickLimit(reading, mode) {
     switch (mode) {
     case 'session':
@@ -599,18 +464,14 @@ function pickLimit(reading, mode) {
     }
 }
 
-// -1 means last, which insert_child_at_index already takes -- and taken button
-// by button in order it still leaves them in the order they were asked for.
-// Any other index is clamped, since what else is in the box is not ours to know.
+// -1 is last; any other index is clamped to what the box holds.
 function position(target, index, offset) {
     if (index < 0)
         return -1;
     return Math.min(index + offset, target.get_n_children());
 }
 
-// The panel's boxes are private, but reparenting into them is the only way to
-// move an indicator that is already registered, and it is long-standing
-// practice among extensions that offer a position setting.
+// Private: the only way to move an indicator that is already registered.
 function panelBox(name) {
     return Main.panel[`_${name}Box`];
 }
