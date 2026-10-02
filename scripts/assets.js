@@ -19,7 +19,7 @@ import GLib from 'gi://GLib';
 import Gio from 'gi://Gio';
 import GdkPixbuf from 'gi://GdkPixbuf';
 
-import {allProviders} from '../src/lib/providers/registry.js';
+import {PROVIDERS} from '../src/lib/providers/registry.js';
 
 const RED = '\x1b[1;31m';
 const GREEN = '\x1b[1;32m';
@@ -82,7 +82,7 @@ print(`\n${'\x1b[1m'}Providers${OFF} — an icon asked for is an icon that exist
 {
     // A typo in a provider's `icon` is silent: the button falls back to the
     // gauge and looks like a provider that simply has no icon of its own.
-    for (const provider of allProviders()) {
+    for (const provider of PROVIDERS) {
         if (provider.icon === undefined) {
             check(`${provider.id} declares no icon`, 'falls back', 'falls back');
             continue;

@@ -1,11 +1,8 @@
+import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 
 import {Reading, Status} from '../usage.js';
 import * as Log from '../log.js';
-
-export function detect(cli) {
-    return GLib.find_program_in_path(cli) !== null;
-}
 
 export function reading(provider, fields) {
     return new Reading({
@@ -15,17 +12,21 @@ export function reading(provider, fields) {
     });
 }
 
-// The file's text, or null. A missing login file is ordinary, so only a debug line.
-export function readText(file, what) {
+// The file's JSON, or null when it is missing or half-written: both are
+// ordinary for a login file, so only a debug line.
+export function readJson(file, what) {
     try {
-        const [ok, bytes] = file.load_contents(null);
-        if (!ok)
-            return null;
-        return new TextDecoder().decode(bytes);
+        const [, bytes] = file.load_contents(null);
+        return JSON.parse(new TextDecoder().decode(bytes));
     } catch (e) {
         Log.debug(`No ${what} to read: ${e.message}`);
         return null;
     }
+}
+
+// "free-tier" -> "Free tier".
+export function humanise(id) {
+    return id.replace(/[_-]+/g, ' ').trim().replace(/^\w/, c => c.toUpperCase());
 }
 
 // Rounded to the minute: the services jitter a reset across minute boundaries,
@@ -40,7 +41,10 @@ export function parseTimestamp(value) {
     return GLib.DateTime.new_from_unix_utc(Math.round(seconds / 60) * 60);
 }
 
+// A cancelled request is thrown on: the app drops that round.
 export function failureReading(provider, e, plan = null) {
+    if (e instanceof Gio.IOErrorEnum)
+        throw e;
     // Duck-typed, not HttpError: importing http.js would put Soup in prefs' graph.
     const status = Number.isFinite(e.status) ? e.status : 0;
     const expired = status === 401 || status === 403;

@@ -6,14 +6,12 @@ import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 import Secret from 'gi://Secret?version=1';
 
-import {Limit, Status, numberOrNull} from '../usage.js';
+import {Limit, Status, numberOrNull, stringOrNull} from '../usage.js';
 import * as Log from '../log.js';
-import {detect, failureReading, parseTimestamp, readText, reading} from './common.js';
+import {failureReading, humanise, parseTimestamp, readJson, reading} from './common.js';
 
 const LOAD_URL = 'https://cloudcode-pa.googleapis.com/v1internal:loadCodeAssist';
 const QUOTA_URL = 'https://cloudcode-pa.googleapis.com/v1internal:retrieveUserQuotaSummary';
-
-const CLI = 'agy';
 
 // The service answers 403 to a user agent not starting "antigravity".
 const USER_AGENT = 'antigravity/cli (gnome-shell-extension-ai-usage)';
@@ -23,7 +21,7 @@ const KEYRING_ATTRIBUTES = {service: 'gemini', username: 'antigravity'};
 export const AntigravityProvider = {
     id: 'antigravity',
     displayName: 'Antigravity',
-    cli: CLI,
+    cli: 'agy',
     cliName: 'the Antigravity CLI (agy)',
     icon: 'antigravity-symbolic',
 
@@ -32,10 +30,6 @@ export const AntigravityProvider = {
         perModel: false,
         breakdown: false,
         credits: false,
-    },
-
-    detect() {
-        return detect(CLI);
     },
 
     // The fallback file only: the keyring cannot be watched.
@@ -49,16 +43,14 @@ export const AntigravityProvider = {
         try {
             auth = await readCredentials(cancellable);
         } catch (e) {
-            if (e instanceof Gio.IOErrorEnum)
-                throw e;
             Log.debug(`Could not read Antigravity's login: ${e.message}`);
             auth = null;
         }
 
         if (!auth)
-            return this._reading({status: Status.SIGNED_OUT});
+            return reading(this, {status: Status.SIGNED_OUT, plan: this._plan});
         if (auth.expired)
-            return this._reading({status: Status.EXPIRED});
+            return reading(this, {status: Status.EXPIRED, plan: this._plan});
 
         const headers = {
             'Authorization': `Bearer ${auth.accessToken}`,
@@ -74,9 +66,6 @@ export const AntigravityProvider = {
             const body = await http.postJson(QUOTA_URL, headers, {project}, cancellable);
             return this._parse(body);
         } catch (e) {
-            if (e instanceof Gio.IOErrorEnum)
-                throw e;
-
             const failure = failureReading(this, e, this._plan);
             // The project belongs to the login, so a rejected login forgets it.
             if (failure.status === Status.EXPIRED)
@@ -91,9 +80,7 @@ export const AntigravityProvider = {
             return this._projectId;
 
         const body = await http.postJson(LOAD_URL, headers, {metadata: {ideType: 'ANTIGRAVITY'}}, cancellable);
-        this._projectId = typeof body?.cloudaicompanionProject === 'string'
-            ? body.cloudaicompanionProject
-            : null;
+        this._projectId = stringOrNull(body?.cloudaicompanionProject);
         this._plan = tierLabel(body?.currentTier);
         return this._projectId;
     },
@@ -115,16 +102,7 @@ export const AntigravityProvider = {
             throw new Error('no quota buckets in the response');
 
         limits.sort((a, b) => windowRank(a.id) - windowRank(b.id));
-        return this._reading({status: Status.OK, plan: this._plan, limits});
-    },
-
-    _reading({status, plan = null, limits = [], message = null}) {
-        return reading(this, {
-            status,
-            plan: plan ?? this._plan ?? null,
-            limits,
-            message,
-        });
+        return reading(this, {status: Status.OK, plan: this._plan, limits});
     },
 };
 
@@ -176,18 +154,14 @@ function windowRank(id) {
 
 // "free-tier" -> "Free tier"; the tier's displayName is only "Antigravity".
 function tierLabel(tier) {
-    const id = tier?.id;
-    if (typeof id !== 'string' || !id)
-        return null;
-    return id.replace(/[-_]/g, ' ').replace(/^\w/, c => c.toUpperCase());
+    const id = stringOrNull(tier?.id);
+    return id && humanise(id);
 }
 
 // Read fresh every poll and never kept.
 async function readCredentials(cancellable) {
-    const fromKeyring = await lookupKeyring(cancellable);
-    if (fromKeyring)
-        return fromKeyring;
-    return readTokenFile();
+    return await lookupKeyring(cancellable) ??
+        tokenFrom(readJson(AntigravityProvider.credentialsFile(), 'Antigravity token file'));
 }
 
 function lookupKeyring(cancellable) {
@@ -200,31 +174,19 @@ function lookupKeyring(cancellable) {
         Secret.password_lookup(schema, KEYRING_ATTRIBUTES, cancellable, (_o, result) => {
             let secret = null;
             try {
-                secret = Secret.password_lookup_finish(result);
+                secret = JSON.parse(Secret.password_lookup_finish(result));
             } catch (e) {
                 // A locked keyring or no secret service: the file is tried next.
                 Log.debug(`Antigravity keyring lookup failed: ${e.message}`);
             }
-            resolve(secret ? parseToken(secret) : null);
+            resolve(tokenFrom(secret));
         });
     });
 }
 
-function readTokenFile() {
-    const text = readText(AntigravityProvider.credentialsFile(), 'Antigravity token file');
-    return text === null ? null : parseToken(text);
-}
-
-function parseToken(text) {
-    let parsed;
-    try {
-        parsed = JSON.parse(text);
-    } catch {
-        return null;
-    }
-
-    const accessToken = parsed?.token?.access_token;
-    if (typeof accessToken !== 'string' || !accessToken)
+function tokenFrom(parsed) {
+    const accessToken = stringOrNull(parsed?.token?.access_token);
+    if (!accessToken)
         return null;
 
     const expiry = GLib.DateTime.new_from_iso8601(parsed.token.expiry ?? '', null);

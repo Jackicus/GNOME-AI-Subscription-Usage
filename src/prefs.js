@@ -5,7 +5,7 @@ import Gtk from 'gi://Gtk';
 
 import {ExtensionPreferences} from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
 
-import {allProviders} from './lib/providers/registry.js';
+import {PROVIDERS} from './lib/providers/registry.js';
 import {keysFor, providerSettings} from './lib/settings.js';
 
 export default class AiUsagePreferences extends ExtensionPreferences {
@@ -112,7 +112,7 @@ export default class AiUsagePreferences extends ExtensionPreferences {
                 + 'button whatever its switch says.',
         });
 
-        for (const provider of allProviders())
+        for (const provider of PROVIDERS)
             group.add(this._providerRow(provider));
 
         page.add(group);

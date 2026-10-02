@@ -9,7 +9,7 @@
 import GLib from 'gi://GLib';
 
 import {Http} from '../src/lib/http.js';
-import {allProviders} from '../src/lib/providers/registry.js';
+import {PROVIDERS} from '../src/lib/providers/registry.js';
 import {applyOptions} from '../src/lib/settings.js';
 import {Status, formatPercent, formatReset} from '../src/lib/usage.js';
 import * as Log from '../src/lib/log.js';
@@ -38,11 +38,12 @@ function bar(percent, width = 24) {
 async function report(http, provider) {
     print(`${BOLD}${provider.displayName}${OFF} ${DIM}(${provider.id})${OFF}`);
 
-    if (!provider.detect()) {
+    const path = GLib.find_program_in_path(provider.cli);
+    if (!path) {
         print(`  '${provider.cli}' is not on PATH -- the extension leaves this provider out.\n`);
         return;
     }
-    print(`  cli:      ${GLib.find_program_in_path(provider.cli)}`);
+    print(`  cli:      ${path}`);
 
     const reading = applyOptions(await provider.read(http), EVERYTHING, THRESHOLDS);
     print(`  plan:     ${reading.plan ?? '(unknown)'}`);
@@ -83,7 +84,7 @@ let failed = false;
 
 GLib.idle_add(GLib.PRIORITY_DEFAULT, () => {
     (async () => {
-        for (const provider of allProviders()) {
+        for (const provider of PROVIDERS) {
             try {
                 // Providers are independent and there are a handful at most;
                 // one at a time keeps the output in a readable order.

@@ -4,24 +4,25 @@
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 
-import {Limit, Status, numberOrNull} from '../usage.js';
+import {Limit, Status, numberOrNull, stringOrNull} from '../usage.js';
 import * as Log from '../log.js';
-import {detect, failureReading, readText, reading, unknownShapeReading} from './common.js';
+import {failureReading, humanise, readJson, reading, unknownShapeReading} from './common.js';
 
 const USAGE_URL = 'https://chatgpt.com/backend-api/wham/usage';
 
-const CLI = 'codex';
-
 const USER_AGENT = 'codex_cli_rs';
 
-// The response does not name its windows, so they are known by their length.
-const SESSION_WINDOW_SECONDS = 5 * 60 * 60;
-const WEEK_WINDOW_SECONDS = 7 * 24 * 60 * 60;
+// The response does not name its windows, so they are known by their length,
+// within a tolerance. The shared ids let primary-limit find them here too.
+const KNOWN_WINDOWS = [
+    {seconds: 5 * 60 * 60, tolerance: 60 * 60, id: 'session', label: 'Current session'},
+    {seconds: 7 * 24 * 60 * 60, tolerance: 12 * 60 * 60, id: 'weekly_all', label: 'This week'},
+];
 
 export const CodexProvider = {
     id: 'codex',
     displayName: 'Codex',
-    cli: CLI,
+    cli: 'codex',
     cliName: 'the Codex CLI',
     icon: 'codex-symbolic',
 
@@ -29,10 +30,6 @@ export const CodexProvider = {
         perModel: true,     // additional_rate_limits[], one per metered model
         breakdown: false,   // the response says nothing about where usage went
         credits: true,      // credits{}
-    },
-
-    detect() {
-        return detect(CLI);
     },
 
     credentialsFile() {
@@ -68,8 +65,6 @@ export const CodexProvider = {
         try {
             body = await http.getJson(USAGE_URL, headers, cancellable);
         } catch (e) {
-            if (e instanceof Gio.IOErrorEnum)
-                throw e;   // cancelled
             return failureReading(this, e, auth.plan);
         }
 
@@ -117,10 +112,10 @@ function pushWindow(limits, window, {fallbackId, scoped = false, modelName = nul
         return;
 
     const seconds = numberOrNull(window?.limit_window_seconds);
-    const base = windowLabel(seconds);
+    const known = KNOWN_WINDOWS.find(w => seconds !== null && Math.abs(seconds - w.seconds) < w.tolerance);
+    const base = known?.label ?? windowLabel(seconds);
     limits.push(new Limit({
-        // The shared ids let primary-limit find the session or the week here too.
-        id: scoped ? fallbackId : canonicalId(seconds) ?? fallbackId,
+        id: !scoped && known ? known.id : fallbackId,
         label: modelName ? `${base} · ${modelName}` : base,
         percent,
         resetsAt: resetTime(window),
@@ -128,28 +123,11 @@ function pushWindow(limits, window, {fallbackId, scoped = false, modelName = nul
     }));
 }
 
-function canonicalId(seconds) {
-    if (seconds === null)
-        return null;
-    if (Math.abs(seconds - SESSION_WINDOW_SECONDS) < 60 * 60)
-        return 'session';
-    if (Math.abs(seconds - WEEK_WINDOW_SECONDS) < 12 * 60 * 60)
-        return 'weekly_all';
-    return null;
-}
-
 function windowLabel(seconds) {
     if (seconds === null || seconds <= 0)
         return 'Current limit';
-    if (Math.abs(seconds - SESSION_WINDOW_SECONDS) < 60 * 60)
-        return 'Current session';
-    if (Math.abs(seconds - WEEK_WINDOW_SECONDS) < 12 * 60 * 60)
-        return 'This week';
-
     const hours = Math.round(seconds / 3600);
-    if (hours < 48)
-        return `Last ${hours} hours`;
-    return `Last ${Math.round(hours / 24)} days`;
+    return hours < 48 ? `Last ${hours} hours` : `Last ${Math.round(hours / 24)} days`;
 }
 
 // Absolute reset only: one derived from reset_after_seconds drifts per poll and
@@ -180,9 +158,7 @@ function creditsFrom(body) {
 }
 
 function planLabel(planType) {
-    if (typeof planType !== 'string' || !planType || planType === 'unknown')
-        return null;
-    return planType.replace(/_/g, ' ').replace(/^\w/, c => c.toUpperCase());
+    return stringOrNull(planType) && planType !== 'unknown' ? humanise(planType) : null;
 }
 
 // As the CLI does: CODEX_HOME when set and non-empty.
@@ -195,19 +171,9 @@ function codexHome() {
 
 // Read fresh every poll and never kept. A login kept in the keyring reads as signed out.
 function readCredentials() {
-    const contents = readText(CodexProvider.credentialsFile(), 'Codex credentials');
-    if (contents === null)
-        return null;
-
-    let parsed;
-    try {
-        parsed = JSON.parse(contents);
-    } catch {
-        return null;   // half-written; the file monitor reads again
-    }
-
+    const parsed = readJson(CodexProvider.credentialsFile(), 'Codex credentials');
     const tokens = parsed?.tokens;
-    const accessToken = typeof tokens?.access_token === 'string' ? tokens.access_token : null;
+    const accessToken = stringOrNull(tokens?.access_token);
 
     // An API-key login is signed in but has no subscription windows.
     if (!accessToken)
@@ -218,9 +184,7 @@ function readCredentials() {
 
     return {
         accessToken,
-        accountId: typeof tokens?.account_id === 'string' && tokens.account_id
-            ? tokens.account_id
-            : authClaims?.chatgpt_account_id ?? null,
+        accountId: stringOrNull(tokens.account_id) ?? authClaims?.chatgpt_account_id ?? null,
         plan: planLabel(authClaims?.chatgpt_plan_type),
         expired: isExpired(claims),
     };

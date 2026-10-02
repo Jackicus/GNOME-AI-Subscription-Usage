@@ -4,12 +4,4 @@ import {AntigravityProvider} from './antigravity.js';
 import {ClaudeProvider} from './claude.js';
 import {CodexProvider} from './codex.js';
 
-const PROVIDERS = new Map([
-    [ClaudeProvider.id, ClaudeProvider],
-    [CodexProvider.id, CodexProvider],
-    [AntigravityProvider.id, AntigravityProvider],
-]);
-
-export function allProviders() {
-    return [...PROVIDERS.values()];
-}
+export const PROVIDERS = [ClaudeProvider, CodexProvider, AntigravityProvider];
