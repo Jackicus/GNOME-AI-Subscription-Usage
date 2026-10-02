@@ -41,8 +41,9 @@ wrong number.
 `agy` keeps its login in the **secret service**; the file
 `~/.gemini/antigravity-cli/antigravity-oauth-token` is only written without a
 D-Bus session and is stale on a desktop, so the keyring is tried first. Two
-POSTs to `cloudcode-pa.googleapis.com`: `loadCodeAssist` (project id, kept on the
-provider until a token is rejected) then `retrieveUserQuotaSummary`.
+POSTs to `cloudcode-pa.googleapis.com`: `loadCodeAssist` (project id, kept until
+a token is rejected or the extension is disabled: the app reads through a copy
+of each provider made per enable) then `retrieveUserQuotaSummary`.
 
 * It answers **403** to a User-Agent not starting `antigravity`, which is why
   `Http` sets no session-wide agent and each provider passes its own.
