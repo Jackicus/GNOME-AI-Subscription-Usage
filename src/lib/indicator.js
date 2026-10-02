@@ -43,7 +43,7 @@ function explain(reading) {
 
 export const UsageIndicator = GObject.registerClass(
 class UsageIndicator extends PanelMenu.Button {
-    _init(iconFile, name, actions) {
+    _init(iconName, fallbackFile, name, actions) {
         super._init(0.5, `${name} usage`, false);
 
         this.add_style_class_name('ai-usage-panel-button');
@@ -52,7 +52,10 @@ class UsageIndicator extends PanelMenu.Button {
 
         this._box = new St.BoxLayout({style_class: 'ai-usage-panel-box'});
         this._icon = new St.Icon({
-            gicon: new Gio.FileIcon({file: iconFile}),
+            // A stock icon, so no company's mark ships; the gauge stands in
+            // under an icon theme that lacks it.
+            icon_name: iconName,
+            fallback_gicon: new Gio.FileIcon({file: fallbackFile}),
             icon_size: ICON_SIZE,
             style_class: 'system-status-icon',
         });

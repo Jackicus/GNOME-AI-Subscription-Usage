@@ -12,8 +12,9 @@ has a refresh button and an arrow to the preferences.](docs/screenshots/pop-up.p
 
 ## What it does
 
-- **A button per subscription**, carrying the provider's mark and the percentage of its
-  current session used. It turns amber at 80% and red at 95%, and both figures can be
+- **A button per subscription**, carrying an icon of its own and the percentage of its
+  current session used: a light bulb for Claude, a pencil for Antigravity, a terminal for
+  Codex. It turns amber at 80% and red at 95%, and both figures can be
   changed.
 - **Every limit in one pop-up**: the session, the week and the week for each model, each
   with a bar and the time it resets, plus paid extra usage and where the week's usage
@@ -27,8 +28,8 @@ has a refresh button and an arrow to the preferences.](docs/screenshots/pop-up.p
 - **Your choice of figure and place**: the session, the week or whichever is highest, at
   the left, centre or right of the top bar.
 
-![Two buttons at the right of the top bar: the Claude mark reading 12% and the
-Antigravity mark reading 40%.](docs/screenshots/top-bar-cropped.png)
+![Two buttons at the right of the top bar: Claude's light bulb reading 12% and
+Antigravity's pencil reading 40%.](docs/screenshots/top-bar-cropped.png)
 
 ## You never sign in here
 
@@ -100,15 +101,15 @@ To update, `git pull && make install`, then log out and back in. To remove it,
 
 | Buttons | Readings | Providers |
 | --- | --- | --- |
-| ![The Buttons page: which figure each button carries, set to Current session; a switch for showing the percentage; how reset times are worded; and the start of where the buttons sit.](docs/screenshots/preferences-buttons.png) | ![The Readings page: 300 seconds between readings, and Notify at 0, which turns notifications off.](docs/screenshots/preferences-readings.png) | ![The Providers page: Claude Code found at /usr/bin/claude, the Codex CLI not installed so Codex is left out, and the Antigravity CLI (agy) found at /usr/bin/agy, each with a switch.](docs/screenshots/preferences-providers.png) |
+| ![The Buttons page: which figure each button carries, set to Current session; a switch for showing the percentage; how reset times are worded; and the start of where the buttons sit.](docs/screenshots/preferences-buttons.png) | ![The Readings page: 300 seconds between readings, and Notify at 0, which turns notifications off.](docs/screenshots/preferences-readings.png) | ![The Providers page: Claude Code found at /usr/bin/claude, the Codex CLI not installed so Codex is left out, and the Antigravity CLI (agy) found at /usr/bin/agy, each with its button's icon and a switch.](docs/screenshots/preferences-providers.png) |
 
 - **Buttons**: the figure each button carries, whether the percentage is shown beside the
   icon, how reset times are worded, which end of the top bar the buttons sit in and
   where, and the figures at which they turn amber and red.
 - **Readings**: seconds between readings (60 to 3600), and the figure at which a limit
   notifies you (0 for never).
-- **Providers**: each provider's switch, where its tool was found, and what its pop-up
-  lists.
+- **Providers**: each provider's switch, the icon its button carries, where its tool was
+  found, and what its pop-up lists.
 
 ## Troubleshooting
 
@@ -152,12 +153,11 @@ GPL-2.0-or-later. See [LICENSE](LICENSE).
 
 ## Credits and trademarks
 
-The Claude, Antigravity and OpenAI names and marks are trademarks of Anthropic, Google
-and OpenAI. The marks appear on the buttons (OpenAI's on Codex's) only to say which
-service a figure belongs to; this extension is not affiliated with or endorsed by any of
-them. The Claude and OpenAI
-marks are drawn from [Simple Icons](https://simpleicons.org) (CC0-1.0), the Antigravity
-mark from [Boxicons](https://boxicons.com) (MIT).
+Claude is a trademark of Anthropic, Antigravity of Google, and Codex and OpenAI of
+OpenAI. The names are used only to say which service a figure belongs to; this extension
+is not affiliated with or endorsed by any of them. No logo or mark of theirs ships: the
+buttons use generic icons from GNOME's Adwaita icon theme, and the fallback gauge is the
+extension's own.
 
 The plans, figures and paths in the screenshots are invented: they come from stand-in
 logins and answers in a nested shell (`./scripts/nested.sh shots`), not from anyone's

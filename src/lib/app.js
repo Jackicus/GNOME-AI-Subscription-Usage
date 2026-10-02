@@ -129,10 +129,10 @@ export class AiUsageApp {
     }
 
     _createButton(provider) {
-        const icon = this._extension.dir.get_child('icons').get_child(`${provider.icon ?? 'ai-usage-symbolic'}.svg`);
+        const gauge = this._extension.dir.get_child('icons').get_child('ai-usage-symbolic.svg');
         // Refresh reads every provider and leaves the pop-up open to watch the
         // figures change; the preferences close it.
-        const indicator = new UsageIndicator(icon, provider.displayName, [
+        const indicator = new UsageIndicator(provider.icon, gauge, provider.displayName, [
             {label: 'Refresh now', icon: 'view-refresh-symbolic', action: () => this.refresh()},
             {label: 'Preferences', icon: 'go-next-symbolic', action: () => {
                 indicator.menu.close(true);

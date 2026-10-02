@@ -61,8 +61,9 @@ of each provider made per enable) then `retrieveUserQuotaSummary`.
    `stringOrNull`/`numberOrNull` from `usage.js` for outside data.
    The provider is an object: `id` (the settings path and the panel role),
    `displayName`, `cli` (looked for on `PATH`) and `cliName` (named in the
-   sign-in message), optionally `icon` (a file in `src/icons/`, without `.svg`:
-   a plain string, so the preferences can load the module), `capabilities`
+   sign-in message), `icon` (a stock Adwaita symbolic's name that no other
+   provider uses, never the company's mark or one drawn after it: README,
+   Credits and trademarks; `make assets` checks it), `capabilities`
    (which of `perModel`, `breakdown`, `credits` it can honour),
    `credentialsFile()` (watched, so the tool's refresh is read at once) and
    `read(http, cancellable)`, resolving to a `Reading`, the login read afresh
