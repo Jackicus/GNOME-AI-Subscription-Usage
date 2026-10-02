@@ -32,8 +32,8 @@ SHOTS_SETTLE=35
 # padding, the icon size, how many digits the figure has, the font. A stale
 # coordinate does not fail -- it clicks the bar, nothing opens, and the pop-up
 # picture is of the wallpaper. Re-measure with 'start --stand-in --headless' and
-# a 'do "click 1301 16" "shot FILE 0 0 1600 36"'.
-SHOTS_CLAUDE_BUTTON="1301 16"
+# a 'do "click 1235 16" "shot FILE 0 0 1600 36"'.
+SHOTS_CLAUDE_BUTTON="1235 16"
 # The preferences window opens centred, so its tabs are at fixed points too.
 SHOTS_TAB_BUTTONS="677 201"
 SHOTS_TAB_READINGS="799 201"
@@ -89,13 +89,13 @@ shots_take() {
     # A strip of the right-hand end, where the buttons go by default. Nothing is
     # clicked first, so this picture has no recording indicator in it at all.
     shots_do "shot $out/top-bar$suffix.png 1100 0 500 36" || return 1
-    # The tighter crop the README opens with: the two buttons and the icons
+    # The tighter crop the README opens with: the three buttons and the icons
     # either side of them, and no more. Taken from the shell rather than cut out
     # of the strip above by hand afterwards, because a picture nobody can
     # regenerate goes stale the first time the buttons move. Dark only; the
     # README has one.
     if (( ! light )); then
-        shots_do "shot $out/top-bar-cropped.png 1317 0 281 28" || return 1
+        shots_do "shot $out/top-bar-cropped.png 1248 0 350 28" || return 1
     fi
 
     info "Opening a button's pop-up..."
@@ -103,7 +103,7 @@ shots_take() {
     # The recording indicator outlives the process that asked for it by a few
     # seconds, so wait it out rather than photograph the shell mid-tidy. Six is
     # measured: it was still there at four and gone by six.
-    shots_do "wait 6" "shot $out/pop-up$suffix.png 1085 0 500 330" || return 1
+    shots_do "wait 6" "shot $out/pop-up$suffix.png 1016 0 569 330" || return 1
     shots_do "key Escape" || return 1
 
     # The preferences are a GTK window and follow their own colour setting

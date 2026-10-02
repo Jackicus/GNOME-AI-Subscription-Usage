@@ -78,8 +78,44 @@ function antigravityQuota() {
     };
 }
 
+// A Codex window, as the service writes it: seconds, and the reset as a Unix time.
+function codexWindow(percent, hours, resetsAt) {
+    const at = GLib.DateTime.new_from_iso8601(resetsAt, null).to_unix();
+    return {
+        used_percent: percent,
+        limit_window_seconds: hours * 60 * 60,
+        reset_after_seconds: at - GLib.DateTime.new_now_utc().to_unix(),
+        reset_at: at,
+    };
+}
+
+function codexUsage() {
+    const session = codexWindow(23, 5, inHours(1, 50));
+    const weekly = codexWindow(47, 7 * 24, inDaysAt(3, 9));
+    return {
+        user_id: 'user-StandInStandInStandIn00',
+        account_id: '00000000-0000-4000-8000-000000000000',
+        email: 'someone@example.com',
+        plan_type: 'plus',
+        rate_limit: {allowed: true, limit_reached: false, primary_window: session, secondary_window: weekly},
+        code_review_rate_limit: null,
+        additional_rate_limits: null,
+        model_usage: {},
+        chatpass: {windows: [session, weekly]},
+        credits: {
+            has_credits: false, unlimited: false, overage_limit_reached: false, balance: null,
+            approx_local_messages: null, approx_cloud_messages: null,
+        },
+        spend_control: {reached: false, individual_limit: null},
+        rate_limit_reached_type: null,
+        promo: null,
+        rate_limit_reset_credits: {available_count: 0, applicable_available_count: 0},
+    };
+}
+
 const ANSWERS = {
     'https://api.anthropic.com/api/oauth/usage': claudeUsage,
+    'https://chatgpt.com/backend-api/wham/usage': codexUsage,
     'https://cloudcode-pa.googleapis.com/v1internal:loadCodeAssist': antigravityProject,
     'https://cloudcode-pa.googleapis.com/v1internal:retrieveUserQuotaSummary': antigravityQuota,
 };
