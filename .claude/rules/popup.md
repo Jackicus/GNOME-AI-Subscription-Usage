@@ -11,16 +11,18 @@ paths:
   and preferences are the shell's `icon-button flat` at the header's right end,
   dimmed on the icon (not the button, or the hover background dims too) and lit
   on hover/focus by `actionButton()`. The empty state still gets a header.
-* `UsageBar` and the percentage cell are `St.BoxLayout`s, not `St.Bin`s, for the
-  kit's `St.Bin` reason: the fill and the figures both floated mid-cell.
-* The last pop-up row is marked `ai-usage-last` by `_padLastRow()`, for want of
+* The bars are the shell's `BarLevel`, drawn from `-barlevel-*` properties on
+  `.ai-usage-bar` and its severity class. It reads `-barlevel-overdrive-color`
+  too, so that is set though never drawn. A row whose `percent` is null (credits
+  switched off, a balance) has no figure and no bar.
+* The percentage cell is an `St.BoxLayout`, not an `St.Bin`, for the kit's
+  `St.Bin` reason: the figure floated mid-cell.
+* The last pop-up row is marked `ai-usage-last` by `_renderMenu()`, for want of
   `:last-child`.
-* Dimming is actor opacity (`DIM_OPACITY`); the bar fill is sized against its
-  track on `notify::width`, for want of percentage widths. `min-width` does exist.
+* Dimming is actor opacity (`DIM_OPACITY`). `min-width` does exist.
 * **Its exception to the kit's colour rule**: the bar track's mid grey and
   GNOME's own warning/critical palette (Yellow 5 `#e5a50a`, Red 4 `#e01b24`) are
-  the only flat colours, since St names no warning colour. The fill's
-  `-st-accent-color` follows a plain-blue fallback declaration, which an older
-  shell keeps. No foreground colour is hardcoded.
+  the only flat colours, since St names no warning colour. A normal bar is
+  `-st-accent-color`. No foreground colour is hardcoded.
 * Paddings are px measured from the shell's own theme (`.popup-menu-item`,
   `.quick-settings`, `#panel .panel-button`), each with its reason beside it.

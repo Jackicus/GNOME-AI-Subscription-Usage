@@ -4,6 +4,7 @@ import GObject from 'gi://GObject';
 import Pango from 'gi://Pango';
 import St from 'gi://St';
 
+import * as BarLevel from 'resource:///org/gnome/shell/ui/barLevel.js';
 import * as PanelMenu from 'resource:///org/gnome/shell/ui/panelMenu.js';
 import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
 
@@ -13,10 +14,6 @@ import {Severity, Status, formatBreakdown, formatPercent, formatReset} from './u
 const DIM_OPACITY = 160;
 
 const ICON_SIZE = 16;
-
-// `.ai-usage-bar`'s height in the stylesheet: the narrowest fill that still
-// looks like a bar with both ends rounded.
-const BAR_HEIGHT = 4;
 
 const SEVERITY_CLASS = {
     [Severity.NORMAL]: 'ai-usage-normal',
@@ -40,38 +37,6 @@ function explain(reading) {
         return 'Usage could not be read.';
     }
 }
-
-// St has no percentage widths, so the fill is sized against the track's width.
-// A box, not an St.Bin, which would centre the fill.
-const UsageBar = GObject.registerClass(
-class UsageBar extends St.BoxLayout {
-    constructor(fraction, severity) {
-        super({
-            style_class: 'ai-usage-bar',
-            x_expand: true,
-            y_align: Clutter.ActorAlign.CENTER,
-        });
-
-        this._fraction = Math.max(0, Math.min(1, fraction));
-        this._fill = new St.Widget({
-            style_class: `ai-usage-bar-fill ${SEVERITY_CLASS[severity]}`,
-            x_expand: false,
-            y_expand: true,
-        });
-        this.add_child(this._fill);
-
-        this.connect('notify::width', () => this._resize());
-    }
-
-    _resize() {
-        const width = this.get_width();
-        if (width <= 0)
-            return;
-        // Anything above 0% gets at least a dot, so 1% and 0% differ.
-        const filled = Math.round(width * this._fraction);
-        this._fill.set_width(this._fraction > 0 ? Math.max(BAR_HEIGHT, filled) : 0);
-    }
-});
 
 export const UsageIndicator = GObject.registerClass(
 class UsageIndicator extends PanelMenu.Button {
@@ -120,10 +85,6 @@ class UsageIndicator extends PanelMenu.Button {
     // null until the provider has answered.
     setReading(reading) {
         this._reading = reading;
-        this._render();
-    }
-
-    _render() {
         this._renderPanel();
         this._renderMenu();
     }
@@ -172,13 +133,8 @@ class UsageIndicator extends PanelMenu.Button {
         } else {
             this._addReading(this._reading);
         }
-        this._padLastRow();
-    }
-
-    // St has no :last-child; the stylesheet pads the marked row.
-    _padLastRow() {
-        const rows = this._section.box.get_children();
-        rows.at(-1).add_style_class_name('ai-usage-last');
+        // St has no :last-child; the stylesheet pads the marked row.
+        this._section.box.get_children().at(-1).add_style_class_name('ai-usage-last');
     }
 
     _addReading(reading) {
@@ -192,16 +148,8 @@ class UsageIndicator extends PanelMenu.Button {
         for (const limit of reading.limits)
             this._section.addMenuItem(limitItem(limit, this._resetFormat, this._clock));
 
-        if (reading.credits?.percent === null)
-            this._section.addMenuItem(statusItem(reading.credits.label, reading.credits.detail));
-        else if (reading.credits)
-            this._section.addMenuItem(limitItem({
-                label: reading.credits.label,
-                percent: reading.credits.percent,
-                severity: reading.credits.severity,
-                resetsAt: null,
-                active: false,
-            }, this._resetFormat, this._clock));
+        if (reading.credits)
+            this._section.addMenuItem(limitItem(reading.credits, this._resetFormat, this._clock));
 
         const breakdown = formatBreakdown(reading.breakdown);
         if (breakdown)
@@ -237,12 +185,7 @@ function actionButton(label, iconName, action) {
 }
 
 function inertItem(styleClass) {
-    const item = new PopupMenu.PopupBaseMenuItem({
-        reactive: false,
-        can_focus: false,
-        style_class: styleClass,
-    });
-    return item;
+    return new PopupMenu.PopupBaseMenuItem({reactive: false, can_focus: false, style_class: styleClass});
 }
 
 // Name, plan dimmed beside it, the actions hard right. The plan (or, with no
@@ -265,8 +208,8 @@ function headerItem(name, plan, actions) {
             x_expand: true,
             x_align: Clutter.ActorAlign.START,
             y_align: Clutter.ActorAlign.CENTER,
+            opacity: DIM_OPACITY,
         });
-        planLabel.opacity = DIM_OPACITY;
         row.add_child(planLabel);
     } else {
         nameLabel.x_expand = true;
@@ -286,9 +229,10 @@ function headerItem(name, plan, actions) {
     return item;
 }
 
-// Name, dimmed reset, percentage, bar underneath, as Claude Code's /usage. The
-// name is the one expanding column and the figure has a fixed-width cell, so
-// the columns line up from row to row.
+// Name, dimmed reset (or detail), percentage, bar underneath, as Claude Code's
+// /usage. The name is the one expanding column and the figure has a fixed-width
+// cell, so the columns line up from row to row. A row with no percentage has no
+// figure and no bar: an empty bar would claim a 0% the service never said.
 function limitItem(limit, resetFormat, clock) {
     const item = inertItem('ai-usage-limit');
     const column = new St.BoxLayout({
@@ -307,17 +251,20 @@ function limitItem(limit, resetFormat, clock) {
     name.clutter_text.ellipsize = Pango.EllipsizeMode.END;
     top.add_child(name);
 
-    const reset = formatReset(limit.resetsAt, {format: resetFormat, clock});
+    const reset = limit.detail ?? formatReset(limit.resetsAt, {format: resetFormat, clock});
     if (reset) {
-        const label = new St.Label({
+        top.add_child(new St.Label({
             text: reset,
             style_class: 'ai-usage-limit-reset',
             x_align: Clutter.ActorAlign.END,
             y_align: Clutter.ActorAlign.CENTER,
-        });
-        label.opacity = DIM_OPACITY;
-        top.add_child(label);
+            opacity: DIM_OPACITY,
+        }));
     }
+    column.add_child(top);
+    item.add_child(column);
+    if (limit.percent === null)
+        return item;
 
     // A box, not an St.Bin, so the figure ends where the bar does.
     const figure = new St.Label({
@@ -331,46 +278,17 @@ function limitItem(limit, resetFormat, clock) {
     percent.add_child(figure);
     top.add_child(percent);
 
-    column.add_child(top);
-    column.add_child(new UsageBar(limit.percent / 100, limit.severity));
-
-    item.add_child(column);
-    return item;
-}
-
-// A limit row's top line with no figure and no bar, for a status with nothing
-// to measure: an empty bar would claim a 0% the service never said.
-function statusItem(text, detail) {
-    const item = inertItem('ai-usage-limit');
-    const top = new St.BoxLayout({style_class: 'ai-usage-limit-row', x_expand: true});
-    const name = new St.Label({
-        text,
-        style_class: 'ai-usage-limit-label',
+    column.add_child(new BarLevel.BarLevel({
+        value: limit.percent / 100,
+        style_class: `ai-usage-bar ${SEVERITY_CLASS[limit.severity]}`,
         x_expand: true,
-        y_align: Clutter.ActorAlign.CENTER,
-    });
-    name.clutter_text.ellipsize = Pango.EllipsizeMode.END;
-    top.add_child(name);
-
-    if (detail) {
-        const label = new St.Label({
-            text: detail,
-            style_class: 'ai-usage-limit-reset',
-            x_align: Clutter.ActorAlign.END,
-            y_align: Clutter.ActorAlign.CENTER,
-        });
-        label.opacity = DIM_OPACITY;
-        top.add_child(label);
-    }
-
-    item.add_child(top);
+    }));
     return item;
 }
 
 function captionItem(text) {
     const item = inertItem('ai-usage-caption-row');
-    const label = new St.Label({text, style_class: 'ai-usage-caption', x_expand: true});
-    label.opacity = DIM_OPACITY;
+    const label = new St.Label({text, style_class: 'ai-usage-caption', x_expand: true, opacity: DIM_OPACITY});
     label.clutter_text.line_wrap = true;
     item.add_child(label);
     return item;

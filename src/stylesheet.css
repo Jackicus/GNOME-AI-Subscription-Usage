@@ -97,28 +97,22 @@
     icon-size: 0.955em;
 }
 
-/* .slider's 4px height; 6px above is .popup-menu-item's spacing. */
+/* A BarLevel, as .slider draws one; 6px above is .popup-menu-item's spacing.
+   The overdrive colour is never drawn, but BarLevel reads it. */
 .ai-usage-bar {
-    background-color: rgba(127, 127, 127, 0.25);
-    height: 4px;
-    border-radius: 999px;
+    -barlevel-height: 4px;
+    -barlevel-background-color: rgba(127, 127, 127, 0.25);
+    -barlevel-active-background-color: -st-accent-color;
+    -barlevel-overdrive-color: -st-accent-color;
     margin-top: 6px;
 }
 
-/* The plain blue is for a shell that does not know -st-accent-color. */
-.ai-usage-bar-fill {
-    height: 4px;
-    border-radius: 999px;
-    background-color: #3584e4;
-    background-color: -st-accent-color;
+.ai-usage-bar.ai-usage-warning {
+    -barlevel-active-background-color: #e5a50a;
 }
 
-.ai-usage-bar-fill.ai-usage-warning {
-    background-color: #e5a50a;
-}
-
-.ai-usage-bar-fill.ai-usage-critical {
-    background-color: #e01b24;
+.ai-usage-bar.ai-usage-critical {
+    -barlevel-active-background-color: #e01b24;
 }
 
 .ai-usage-caption {
