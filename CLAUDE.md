@@ -66,8 +66,9 @@ log on (`lib/log.js`'s `setVerbose`) and names its stage after a checksum of
   `${uuid}-${providerId}`; placed in `panel-box` from `panel-index`, in registry
   order. The icon (`icons/<provider.icon>.svg`, else `ai-usage-symbolic.svg`) is
   always drawn at 16px; `show-percent` only hides the figure.
-* A move in `_placeButtons()` is a reparent into the panel's box, and a provider
-  toggles without a restart because destroying its indicator releases the role.
+* Destroying an indicator releases its role, so a provider toggles without a
+  restart, and `_placeButtons()` places every button through `addToStatusArea`,
+  building afresh one that was already placed (a move, a provider switched on).
 * **Reading is lazy.** A timer (`poll-seconds`) is the fallback, skipped when
   the session has been idle for 10 minutes. The real triggers are the stored
   login changing on disk (file monitor, 2 s debounce) and opening a pop-up —
@@ -104,9 +105,7 @@ so any display change is one redraw and no request. Only `enabled` re-reads.
 
 ## Private shell API
 
-* `Main.panel._leftBox`, `_centerBox`, `_rightBox`, reached through `panelBox()`
-  in `app.js`: the box a button is placed in and moved into. If they are
-  renamed, `position()` throws on the first placement and no button appears.
+None.
 
 ## Verifying
 
