@@ -98,8 +98,7 @@ export class AiUsageApp {
     }
 
     // A provider is live when it is switched on and its command-line tool is
-    // installed. Destroying an indicator releases its panel role, so a provider
-    // can be switched off and on again without a restart.
+    // installed.
     _syncButtons() {
         let changed = false;
         for (const entry of this._providers.values()) {
@@ -124,7 +123,6 @@ export class AiUsageApp {
 
         if (changed) {
             this._placeButtons();
-            this._redraw();
             Log.debug(`Top bar: ${this._live().length} button(s) — ${this._live().map(e => e.provider.id).join(', ')}`);
         }
         this._watchCredentials();
@@ -148,27 +146,23 @@ export class AiUsageApp {
         return indicator;
     }
 
-    // addToStatusArea claims the role until the indicator is destroyed, so only
-    // the first placement goes through it; a move reparents the container.
+    // addToStatusArea claims the role until the indicator is destroyed, so a
+    // button already placed is built afresh to be placed again. -1, or an
+    // index past the end of the box, appends.
     _placeButtons() {
-        const boxName = this._settings.get_string('panel-box');
+        const box = this._settings.get_string('panel-box');
         const index = this._settings.get_int('panel-index');
-        const target = panelBox(boxName);
 
         let offset = 0;
-        for (const {provider, indicator} of this._live()) {
-            const container = indicator.container;
-            const parent = container.get_parent();
-
-            if (!parent) {
-                Main.panel.addToStatusArea(`${this._extension.uuid}-${provider.id}`, indicator,
-                    position(target, index, offset), boxName);
-            } else {
-                parent.remove_child(container);
-                target.insert_child_at_index(container, position(target, index, offset));
+        for (const entry of this._live()) {
+            if (entry.indicator.container.get_parent()) {
+                entry.indicator.destroy();
+                entry.indicator = this._createButton(entry.provider);
             }
-            offset++;
+            Main.panel.addToStatusArea(`${this._extension.uuid}-${entry.provider.id}`, entry.indicator,
+                index < 0 ? -1 : index + offset++, box);
         }
+        this._redraw();
     }
 
     // A read already out is cancelled, so the newest answer is the one shown.
@@ -316,16 +310,4 @@ export class AiUsageApp {
             }
         }
     }
-}
-
-// -1 is last; any other index is clamped to what the box holds.
-function position(target, index, offset) {
-    if (index < 0)
-        return -1;
-    return Math.min(index + offset, target.get_n_children());
-}
-
-// Private: the only way to move an indicator that is already registered.
-function panelBox(name) {
-    return Main.panel[`_${name}Box`];
 }
