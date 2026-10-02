@@ -29,14 +29,6 @@ export function providerSettings(extensionDir, providerId) {
     });
 }
 
-export function displayOptions(settings) {
-    return {
-        showPerModel: settings.get_boolean('show-per-model'),
-        showBreakdown: settings.get_boolean('show-breakdown'),
-        showCredits: settings.get_boolean('show-credits'),
-    };
-}
-
 // The preferences offer only the switches a provider's capabilities can honour.
 const PROVIDER_KEYS = [
     {key: 'show-per-model', title: 'List per-model limits', capability: 'perModel'},

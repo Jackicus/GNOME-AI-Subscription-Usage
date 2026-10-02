@@ -53,10 +53,6 @@ export class Reading {
         }
         return worst;
     }
-
-    find(predicate) {
-        return this.limits.find(predicate) ?? null;
-    }
 }
 
 // Number(null), Number(true) and Number('') are numbers; a row without a real
