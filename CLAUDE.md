@@ -139,8 +139,8 @@ extension's own:
 
 * **A plain `start` runs your install, your CLIs and your logins**, so its
   providers read the real stored logins and go to the network. To try something
-  without that, `start --stand-in`; to see a plain start come up with no
-  provider live, start it with `PATH=/usr/local/bin:/usr/bin` (no CLI there).
+  without that, `start --stand-in`. No `PATH` hides the CLIs: Codex's is in
+  `/usr/bin`, which every start needs.
 * **`start --stand-in`** is a stand-in world (`./scripts/nested.d/stand-in.sh`):
   stand-in `claude` and `agy` overlaid on `/usr/bin` (`EXT_STAND_IN_BINS`), a
   scratch `HOME` with stand-in logins, and the staged copy's `lib/http.js`
