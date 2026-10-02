@@ -2,6 +2,8 @@ import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 import Soup from 'gi://Soup?version=3.0';
 
+Gio._promisify(Soup.Session.prototype, 'send_and_read_async');
+
 // Under the shortest poll interval the schema allows (60 s).
 const TIMEOUT_SECONDS = 20;
 
@@ -31,7 +33,7 @@ export class Http {
         return this._send('POST', url, headers, JSON.stringify(body), cancellable);
     }
 
-    _send(method, url, headers, body, cancellable) {
+    async _send(method, url, headers, body, cancellable) {
         const message = Soup.Message.new(method, url);
 
         const requestHeaders = message.get_request_headers();
@@ -45,39 +47,28 @@ export class Http {
                 'application/json', new GLib.Bytes(new TextEncoder().encode(body)));
         }
 
-        return new Promise((resolve, reject) => {
-            this._session.send_and_read_async(
-                message, GLib.PRIORITY_DEFAULT, cancellable, (session, result) => {
-                    let bytes;
-                    try {
-                        bytes = session.send_and_read_finish(result);
-                    } catch (e) {
-                        if (e instanceof Gio.IOErrorEnum && e.matches(Gio.IOErrorEnum, Gio.IOErrorEnum.CANCELLED))
-                            reject(e);
-                        else
-                            reject(new HttpError(0, e.message));
-                        return;
-                    }
+        let bytes;
+        try {
+            bytes = await this._session.send_and_read_async(message, GLib.PRIORITY_DEFAULT, cancellable);
+        } catch (e) {
+            if (e instanceof Gio.IOErrorEnum && e.matches(Gio.IOErrorEnum, Gio.IOErrorEnum.CANCELLED))
+                throw e;
+            throw new HttpError(0, e.message);
+        }
 
-                    const status = message.get_status();
-                    if (status !== Soup.Status.OK) {
-                        reject(new HttpError(status, `HTTP ${status} ${message.get_reason_phrase() ?? ''}`.trim()));
-                        return;
-                    }
+        const status = message.get_status();
+        if (status !== Soup.Status.OK)
+            throw new HttpError(status, `HTTP ${status} ${message.get_reason_phrase() ?? ''}`.trim());
 
-                    const data = bytes.get_data();
-                    if (!data?.length) {
-                        reject(new HttpError(status, 'The response was empty.'));
-                        return;
-                    }
+        const data = bytes.get_data();
+        if (!data?.length)
+            throw new HttpError(status, 'The response was empty.');
 
-                    try {
-                        resolve(JSON.parse(new TextDecoder().decode(data)));
-                    } catch (e) {
-                        reject(new HttpError(status, `The response was not JSON: ${e.message}`));
-                    }
-                });
-        });
+        try {
+            return JSON.parse(new TextDecoder().decode(data));
+        } catch (e) {
+            throw new HttpError(status, `The response was not JSON: ${e.message}`);
+        }
     }
 
     destroy() {

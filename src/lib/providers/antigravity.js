@@ -161,7 +161,7 @@ function tierLabel(tier) {
 // Read fresh every poll and never kept.
 async function readCredentials(cancellable) {
     return await lookupKeyring(cancellable) ??
-        tokenFrom(readJson(AntigravityProvider.credentialsFile(), 'Antigravity token file'));
+        tokenFrom(await readJson(AntigravityProvider.credentialsFile(), 'Antigravity token file'));
 }
 
 function lookupKeyring(cancellable) {
