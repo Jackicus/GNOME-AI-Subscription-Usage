@@ -5,7 +5,7 @@ import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 import {Http} from './http.js';
 import {UsageIndicator} from './indicator.js';
-import {allProviders} from './providers/registry.js';
+import {PROVIDERS} from './providers/registry.js';
 import {applyOptions, providerSettings} from './settings.js';
 import {Status, formatReset} from './usage.js';
 import * as Log from './log.js';
@@ -39,7 +39,7 @@ export class AiUsageApp {
     enable() {
         this._http = new Http(`gnome-shell-extension-ai-usage/${this._extension.metadata['version-name']}`);
 
-        for (const provider of allProviders()) {
+        for (const provider of PROVIDERS) {
             const settings = providerSettings(this._extension.dir, provider.id);
             const handlerId = settings.connect('changed', (_s, key) => {
                 if (key !== 'enabled') {
@@ -105,7 +105,7 @@ export class AiUsageApp {
         for (const entry of this._providers.values()) {
             const {provider, settings} = entry;
             let live = settings.get_boolean('enabled');
-            if (live && !provider.detect()) {
+            if (live && !GLib.find_program_in_path(provider.cli)) {
                 Log.debug(`'${provider.cli}' is not installed; leaving ${provider.id} out.`);
                 live = false;
             }
@@ -181,9 +181,8 @@ export class AiUsageApp {
         this._cancellable = cancellable;
 
         this._readAll(cancellable).catch(e => {
-            if (e instanceof Gio.IOErrorEnum && e.matches(Gio.IOErrorEnum, Gio.IOErrorEnum.CANCELLED))
-                return;
-            Log.error('Reading usage failed', e);
+            if (!cancellable.is_cancelled())
+                Log.error('Reading usage failed', e);
         }).finally(() => {
             if (this._cancellable === cancellable)
                 this._cancellable = null;

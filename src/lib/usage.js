@@ -61,6 +61,10 @@ export function numberOrNull(value) {
     return typeof value === 'number' && Number.isFinite(value) ? value : null;
 }
 
+export function stringOrNull(value) {
+    return typeof value === 'string' && value ? value : null;
+}
+
 // The worse of the service's own severity and the user's thresholds.
 export function severityFor(percent, {warn, critical}, reported = Severity.NORMAL) {
     const byPercent = percent >= critical

@@ -44,7 +44,7 @@ src/lib/settings.js     per-provider settings, capabilities -> switches, and
 src/lib/http.js         one libsoup session; getJson/postJson; HttpError(status)
 src/lib/log.js          debug (verbose only) / warn / error, "[AI Usage]" prefix
 src/lib/providers/registry.js     which providers exist
-src/lib/providers/common.js       detect, reading, readText, parseTimestamp,
+src/lib/providers/common.js       reading, readJson, humanise, parseTimestamp,
                                   failureReading, unknownShapeReading
 src/lib/providers/claude.js       Claude, via Claude Code's stored login
 src/lib/providers/antigravity.js  Antigravity, via agy's keyring login

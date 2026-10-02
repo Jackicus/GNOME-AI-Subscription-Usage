@@ -122,7 +122,7 @@ print(`\n${'\x1b[1m'}Loading them${OFF} — outside the shell, as the preference
         check(`${name} loads`, loaded[i].error ?? 'yes', 'yes');
 
     const registry = loaded[0].module;
-    check('and the registry has providers in it', registry?.allProviders().length > 0, true);
+    check('and the registry has providers in it', registry?.PROVIDERS.length > 0, true);
 }
 
 print('');

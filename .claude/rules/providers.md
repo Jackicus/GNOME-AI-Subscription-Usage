@@ -57,15 +57,17 @@ of each provider made per enable) then `retrieveUserQuotaSummary`.
    binary, grepped for `usage`/`limit`, is how `/api/oauth/usage` was found),
    and where the tool stores its login.
 2. Write `src/lib/providers/<id>.js` mapping the response onto `Limit`s, using
-   `common.js` for detection, Readings, file reads, timestamps and failures.
+   `common.js` (Readings, login files, labels, timestamps, failures) and
+   `stringOrNull`/`numberOrNull` from `usage.js` for outside data.
    The provider is an object: `id` (the settings path and the panel role),
    `displayName`, `cli` (looked for on `PATH`) and `cliName` (named in the
    sign-in message), optionally `icon` (a file in `src/icons/`, without `.svg`:
    a plain string, so the preferences can load the module), `capabilities`
-   (which of `perModel`, `breakdown`, `credits` it can honour), `detect()`,
+   (which of `perModel`, `breakdown`, `credits` it can honour),
    `credentialsFile()` (watched, so the tool's refresh is read at once) and
    `read(http, cancellable)`, resolving to a `Reading`, the login read afresh
-   each call. Contract: never throw (return a `Reading` with a `Status`), never write to the
+   each call. Contract: never throw (return a `Reading` with a `Status`; only a
+   cancellation, which `failureReading()` throws on, goes up), never write to the
    provider's files, never log in, and pull nothing of St, Clutter or Soup into
    the prefs process — read `e.status` duck-typed, as `failureReading()` does.
    `make imports` enforces the last.
