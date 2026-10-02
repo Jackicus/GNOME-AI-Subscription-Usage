@@ -45,7 +45,7 @@ const PROVIDER_KEYS = [
 ];
 
 export function keysFor(provider) {
-    return PROVIDER_KEYS.filter(k => provider.capabilities?.[k.capability]);
+    return PROVIDER_KEYS.filter(k => provider.capabilities[k.capability]);
 }
 
 // The display switches and thresholds, as a view that leaves the Reading whole,

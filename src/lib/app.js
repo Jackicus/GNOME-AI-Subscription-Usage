@@ -14,8 +14,6 @@ import * as Log from './log.js';
 // that lock and unlock, which disable and enable, do not notify again.
 const notified = new Map();
 
-const FALLBACK_ICON = 'ai-usage-symbolic.svg';
-
 // A scheduled poll is skipped after this long without input.
 const IDLE_SKIP_MS = 10 * 60 * 1000;
 
@@ -51,7 +49,7 @@ export class AiUsageApp {
     }
 
     enable() {
-        this._http = new Http(`gnome-shell-extension-ai-usage/${this._extension.metadata['version-name'] ?? 'dev'}`);
+        this._http = new Http(`gnome-shell-extension-ai-usage/${this._extension.metadata['version-name']}`);
 
         this._watchClock();
         this._readDisplay();
@@ -71,15 +69,12 @@ export class AiUsageApp {
             this._settings.disconnect(id);
         this._settingsIds = [];
 
-        if (this._interfaceId)
-            this._interface.disconnect(this._interfaceId);
+        this._interface.disconnect(this._interfaceId);
         this._interfaceId = 0;
         this._interface = null;
 
-        for (const {settings, handlerId} of this._providerSettingsById.values()) {
-            if (settings && handlerId)
-                settings.disconnect(handlerId);
-        }
+        for (const {settings, handlerId} of this._providerSettingsById.values())
+            settings.disconnect(handlerId);
         this._providerSettingsById.clear();
         this._entries = [];
 
@@ -91,7 +86,7 @@ export class AiUsageApp {
         for (const key of [...this._buttons.keys()])
             this._destroyButton(key);
 
-        this._http?.destroy();
+        this._http.destroy();
         this._http = null;
 
         this._raw = [];
@@ -109,7 +104,7 @@ export class AiUsageApp {
         this._showPercent = s.get_boolean('show-percent');
         this._pick = reading => pickLimit(reading, limitMode);
         this._resetFormat = s.get_string('reset-format');
-        this._clock = this._interface?.get_string('clock-format') === '12h' ? '12h' : '24h';
+        this._clock = this._interface.get_string('clock-format');
     }
 
     _buttonOptions() {
@@ -128,7 +123,7 @@ export class AiUsageApp {
         this._entries = [];
         for (const provider of allProviders()) {
             const settings = this._providerSettings(provider.id);
-            if (!settings || !settings.get_boolean('enabled'))
+            if (!settings.get_boolean('enabled'))
                 continue;
             if (!provider.detect()) {
                 Log.debug(`'${provider.cli}' is not installed; leaving ${provider.id} out.`);
@@ -145,31 +140,21 @@ export class AiUsageApp {
         if (this._providerSettingsById.has(id))
             return this._providerSettingsById.get(id).settings;
 
-        let settings = null;
-        let handlerId = 0;
-        try {
-            settings = providerSettings(this._extension.dir, id);
-            handlerId = settings.connect('changed', (_s, key) => {
-                if (key !== 'enabled') {
-                    this._redraw();
-                    return;
-                }
-                this._buildEntries();
-                this.refresh();
-            });
-        } catch (e) {
-            Log.error(`Could not open settings for provider '${id}'`, e);
-        }
+        const settings = providerSettings(this._extension.dir, id);
+        const handlerId = settings.connect('changed', (_s, key) => {
+            if (key !== 'enabled') {
+                this._redraw();
+                return;
+            }
+            this._buildEntries();
+            this.refresh();
+        });
         this._providerSettingsById.set(id, {settings, handlerId});
         return settings;
     }
 
     _watchClock() {
-        const schema = Gio.SettingsSchemaSource.get_default()?.lookup('org.gnome.desktop.interface', true);
-        if (!schema)
-            return;
-
-        this._interface = new Gio.Settings({settings_schema: schema});
+        this._interface = new Gio.Settings({schema_id: 'org.gnome.desktop.interface'});
         this._interfaceId = this._interface.connect('changed::clock-format',
             () => this._displayChanged());
     }
@@ -198,11 +183,8 @@ export class AiUsageApp {
         for (const {provider} of this._entries) {
             if (this._buttons.has(provider.id))
                 continue;
-            const built = this._createButton(provider);
-            if (built) {
-                this._buttons.set(provider.id, built);
-                changed = true;
-            }
+            this._buttons.set(provider.id, this._createButton(provider));
+            changed = true;
         }
 
         if (changed) {
@@ -212,13 +194,7 @@ export class AiUsageApp {
     }
 
     _createButton(provider) {
-        let indicator;
-        try {
-            indicator = new UsageIndicator(this._iconFile(provider), provider.displayName);
-        } catch (e) {
-            Log.error(`Could not build the '${provider.id}' button`, e);
-            return null;
-        }
+        const indicator = new UsageIndicator(this._iconFile(provider), provider.displayName);
 
         // Refresh reads every provider and leaves the pop-up open to watch the
         // figures change; the preferences close it.
@@ -242,23 +218,13 @@ export class AiUsageApp {
     // Destroying the indicator releases its panel role, so a provider can be
     // switched off and on again without a restart.
     _destroyButton(id) {
-        const button = this._buttons.get(id);
+        this._buttons.get(id).indicator.destroy();
         this._buttons.delete(id);
-        if (!button)
-            return;
-        button.indicator.destroy();
     }
 
+    // A provider without an icon of its own gets the gauge.
     _iconFile(provider) {
-        const icons = this._extension.dir.get_child('icons');
-        const name = typeof provider.icon === 'string' ? provider.icon.replace(/\.svg$/, '') : '';
-        if (name) {
-            const file = icons.get_child(`${name}.svg`);
-            if (file.query_exists(null))
-                return file;
-            Log.debug(`No icon '${name}.svg' for ${provider.id}; using the generic one.`);
-        }
-        return icons.get_child(FALLBACK_ICON);
+        return this._extension.dir.get_child('icons').get_child(`${provider.icon ?? 'ai-usage-symbolic'}.svg`);
     }
 
     // addToStatusArea claims the role until the indicator is destroyed, so only
@@ -290,7 +256,7 @@ export class AiUsageApp {
     // A read already out is cancelled, so the newest answer is the one shown.
     refresh() {
         this._cancelInFlight();
-        if (!this._http || !this._entries.length) {
+        if (!this._entries.length) {
             this._raw = [];
             this._redraw();
             return;
@@ -319,22 +285,15 @@ export class AiUsageApp {
 
     async _readAll(cancellable) {
         const readings = await Promise.all(this._entries.map(async ({provider}) => {
-            try {
-                const reading = await provider.read(this._http, cancellable);
-                reading.cli = provider.cliName ?? provider.cli;
-                return reading;
-            } catch (e) {
-                if (e instanceof Gio.IOErrorEnum && e.matches(Gio.IOErrorEnum, Gio.IOErrorEnum.CANCELLED))
-                    throw e;
-                Log.error(`Provider '${provider.id}' threw`, e);
-                return null;
-            }
+            const reading = await provider.read(this._http, cancellable);
+            reading.cli = provider.cliName;
+            return reading;
         }));
 
-        if (cancellable.is_cancelled() || this._cancellable !== cancellable)
+        if (cancellable.is_cancelled())
             return;
 
-        this._raw = readings.filter(r => r);
+        this._raw = readings;
         this._redraw();
         // From the untouched readings: a hidden limit still notifies.
         this._maybeNotify();
@@ -345,7 +304,7 @@ export class AiUsageApp {
         const byId = new Map(this._raw.map(reading => [reading.providerId, reading]));
         for (const {provider, settings} of this._entries) {
             const reading = byId.get(provider.id);
-            this._buttons.get(provider.id)?.indicator.setReading(
+            this._buttons.get(provider.id).indicator.setReading(
                 reading ? applyOptions(reading, displayOptions(settings), this._thresholds) : null);
         }
     }
@@ -358,7 +317,7 @@ export class AiUsageApp {
     _schedule() {
         this._unschedule();
         this._timerId = GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, this._settings.get_int('poll-seconds'), () => {
-            if (!this._userIsIdle())
+            if (global.backend.get_core_idle_monitor().get_idletime() <= IDLE_SKIP_MS)
                 this.refresh();
             else
                 Log.debug('Skipping a poll: the session is idle.');
@@ -373,29 +332,13 @@ export class AiUsageApp {
         }
     }
 
-    _userIsIdle() {
-        try {
-            return global.backend.get_core_idle_monitor().get_idletime() > IDLE_SKIP_MS;
-        } catch (e) {
-            Log.debug(`Could not read the idle time, assuming active: ${e.message}`);
-            return false;
-        }
-    }
-
     // The tool rewriting its login means the figures moved, or an expired token is good again.
     _watchCredentials() {
         this._stopWatchingCredentials();
         for (const {provider} of this._entries) {
-            const file = provider.credentialsFile?.();
-            if (!file)
-                continue;
-            try {
-                const monitor = file.monitor_file(Gio.FileMonitorFlags.NONE, null);
-                monitor.connect('changed', () => this._refreshSoon());
-                this._monitors.push(monitor);
-            } catch (e) {
-                Log.debug(`Could not watch ${provider.id}'s credentials: ${e.message}`);
-            }
+            const monitor = provider.credentialsFile().monitor_file(Gio.FileMonitorFlags.NONE, null);
+            monitor.connect('changed', () => this._refreshSoon());
+            this._monitors.push(monitor);
         }
     }
 

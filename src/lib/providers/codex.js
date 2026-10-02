@@ -230,8 +230,6 @@ function readCredentials() {
 function jwtClaims(token) {
     try {
         const payload = token.split('.')[1];
-        if (!payload)
-            return null;
         // base64url without padding, to the base64 GLib reads.
         const padded = payload.replace(/-/g, '+').replace(/_/g, '/')
             .padEnd(payload.length + ((4 - (payload.length % 4)) % 4), '=');

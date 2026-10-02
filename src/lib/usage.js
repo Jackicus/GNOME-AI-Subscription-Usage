@@ -18,7 +18,7 @@ export class Limit {
     constructor({id, label, percent, severity = Severity.NORMAL, resetsAt = null, active = false, scoped = false}) {
         this.id = id;
         this.label = label;
-        this.percent = clampPercent(percent);
+        this.percent = Math.max(0, Math.min(100, percent));
         this.severity = severity;   // the service's own; applyOptions() adds the user's thresholds
         this.resetsAt = resetsAt;   // GLib.DateTime in UTC, or null when open-ended
         this.active = active;
@@ -65,13 +65,6 @@ export function numberOrNull(value) {
     return typeof value === 'number' && Number.isFinite(value) ? value : null;
 }
 
-function clampPercent(value) {
-    const n = Number(value);
-    if (!Number.isFinite(n))
-        return 0;
-    return Math.max(0, Math.min(100, n));
-}
-
 // The worse of the service's own severity and the user's thresholds.
 export function severityFor(percent, {warn, critical}, reported = Severity.NORMAL) {
     const byPercent = percent >= critical
@@ -108,9 +101,6 @@ export function formatReset(resetsAt, {format = ResetFormat.AUTO, now = null, cl
         return relative;
 
     const wallClock = wallClockAt(resetsAt, at, clock, timezone);
-    if (!wallClock)
-        return relative;
-
     switch (format) {
     case ResetFormat.ABSOLUTE:
         return `Resets ${wallClock}`;
@@ -138,14 +128,9 @@ function howLong(minutes) {
 function wallClockAt(resetsAt, now, clock, timezone) {
     const local = timezone ? resetsAt.to_timezone(timezone) : resetsAt.to_local();
     const here = timezone ? now.to_timezone(timezone) : now.to_local();
-    if (!local || !here)
-        return null;
-
     const time = clock === '12h'
         ? local.format('%-I:%M %p')
         : local.format('%H:%M');
-    if (!time)
-        return null;
 
     const today = local.get_year() === here.get_year() &&
         local.get_day_of_year() === here.get_day_of_year();
@@ -162,7 +147,7 @@ export function formatPercent(percent) {
 
 // Two rows at least: a single one is 100% and would read as another limit.
 export function formatBreakdown(rows) {
-    if (!Array.isArray(rows) || rows.length < 2)
+    if (rows.length < 2)
         return null;
     const parts = rows.map(row => `${row.label} ${formatPercent(row.percent)}`);
     return `Where this week went: ${parts.join(' · ')}`;

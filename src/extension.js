@@ -9,7 +9,7 @@ export default class AiUsageExtension extends Extension {
     }
 
     disable() {
-        this._app?.disable();
+        this._app.disable();
         this._app = null;
     }
 }
