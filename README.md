@@ -45,7 +45,7 @@ and the pop-up asks you to run the tool once, which refreshes it.
 | --- | --- | --- |
 | Claude | Claude Code (`claude`), signed in | Working, verified against a live account |
 | Antigravity | the Antigravity CLI (`agy`), signed in | Working, verified against a live account |
-| Codex | the Codex CLI (`codex`), signed in with ChatGPT | Written, **never run against a live account** ([#8](https://github.com/Jackicus/GNOME-AI-Usage/issues/8)) |
+| Codex | the Codex CLI (`codex`), signed in with ChatGPT | Working, verified against a live free-plan account (codex-cli 0.160.0, 2026-10-02); the paid plans' windows are read as openai/codex's source describes them |
 
 Each provider is switched on or off in the preferences, and offered only the switches it
 can honour: per-model limits, where the usage went, extra usage.

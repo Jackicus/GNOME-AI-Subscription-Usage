@@ -2,9 +2,10 @@
 // `./scripts/dev.sh parsers`, and `make check`.
 //
 // This is the only test that can run without a GNOME Shell, and for providers
-// whose command-line tool is not installed here it is the ONLY check there is:
-// the Codex parser has never seen a live response, so this fixture -- taken
-// from the shapes in openai/codex's own tests -- is what stands behind it.
+// whose command-line tool is not installed here it is the ONLY check there is.
+// codex-usage.json is the paid-plan shape from openai/codex's own tests;
+// codex-usage-free.json is the shape a live free-plan account answered with
+// (2026-10-02), its values invented.
 //
 // The endpoints are undocumented and their shapes move, so the point is less
 // "does this pass today" than "say so loudly the day a response changes".
@@ -252,7 +253,7 @@ print('\n\x1b[1mThe breakdown line\x1b[0m — quiet until it has something to re
     check('an empty breakdown is silent', formatBreakdown([]), null);
 }
 
-print('\n\x1b[1mCodex\x1b[0m — tests/fixtures/codex-usage.json  \x1b[2m(shape only; never seen live)\x1b[0m');
+print('\n\x1b[1mCodex\x1b[0m — tests/fixtures/codex-usage.json  \x1b[2m(paid plan, shape from openai/codex)\x1b[0m');
 {
     const reading = parse(CodexProvider, fixture('codex-usage.json'), {plan: null});
 
@@ -272,6 +273,21 @@ print('\n\x1b[1mCodex\x1b[0m — tests/fixtures/codex-usage.json  \x1b[2m(shape 
     check('with no figure to draw a bar from', reading.credits?.percent, null);
     check('and a null percent grades as normal', drawn(reading).credits.severity, 'normal');
     check('no breakdown for this provider', reading.breakdown.length, 0);
+}
+
+print('\n\x1b[1mCodex\x1b[0m — tests/fixtures/codex-usage-free.json  \x1b[2m(free plan, the live shape)\x1b[0m');
+{
+    const reading = parse(CodexProvider, fixture('codex-usage-free.json'), {plan: null});
+
+    check('status', reading.status, Status.OK);
+    check('plan label from plan_type', reading.plan, 'Free');
+    check('the one 30-day window', reading.limits.length, 1);
+    check('named from its length', reading.limits[0].label, 'This month');
+    check('with an id of its own', reading.limits[0].id, 'monthly');
+    check('percent', formatPercent(reading.limits[0].percent), '37%');
+    check('epoch reset converted', reading.limits[0].resetsAt?.format_iso8601(), '2033-06-04T12:13:20Z');
+    check('null additional_rate_limits is no models', reading.limits.filter(l => l.scoped).length, 0);
+    check('no credits means no credits row', reading.credits, null);
 }
 
 print('\n\x1b[1mAntigravity\x1b[0m — tests/fixtures/antigravity-quota.json  \x1b[2m(real, plus a synthetic 5h bucket)\x1b[0m');

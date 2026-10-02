@@ -5,7 +5,8 @@ Shared rules for every extension come from the GNOME-EXTENSIONS kit: `../CLAUDE.
 A GNOME Shell extension (UUID `ai-usage@jackicus`, `version-name` 0.1, shell 50)
 that puts a button in the top bar per AI subscription, showing how much of each
 rate limit is used and when it resets. Claude and Antigravity are verified
-against live accounts; Codex was written from source and has never run.
+against live accounts; Codex against a live free-plan account (codex-cli
+0.160.0, 2026-10-02), its paid-plan windows only from openai/codex's source.
 
 ## The rule the whole design hangs off
 
@@ -49,8 +50,8 @@ src/lib/providers/common.js       reading, readJson, humanise, parseTimestamp,
                                   failureReading, unknownShapeReading
 src/lib/providers/claude.js       Claude, via Claude Code's stored login
 src/lib/providers/antigravity.js  Antigravity, via agy's keyring login
-src/lib/providers/codex.js        Codex -- written from openai/codex, NEVER RUN
-tests/fixtures/         one saved response per provider, for `make parsers`
+src/lib/providers/codex.js        Codex, via the Codex CLI's auth.json
+tests/fixtures/         saved responses (invented values), for `make parsers`
 ```
 
 What ships is `./scripts/ext.conf`'s `EXT_SHIP` (`lib/` with `lib/providers/`,
@@ -116,7 +117,7 @@ None.
   `schema` check (`--strict`), then `EXT_CHECKS`, each a `./scripts/dev.d/`
   command:
   * `parsers`: each provider's parser over `tests/fixtures/`, including that
-    unknown shapes degrade rather than throw. For Codex this is all there is.
+    unknown shapes degrade rather than throw.
   * `imports`: walks everything `prefs.js` reaches, fails on St, Clutter, Meta,
     Shell, Soup or `resource:///org/gnome/shell/`, then loads the shared modules.
   * `assets`: every shipped icon loads through gdk-pixbuf; each provider names a

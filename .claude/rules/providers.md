@@ -51,6 +51,19 @@ of each provider made per enable) then `retrieveUserQuotaSummary`.
   "Weekly Limit Remaining" label would lie over the inverted figure, so labels
   are built from window and model family. A parser check pins 0, 1 and 0.35.
 
+## Codex
+
+`GET https://chatgpt.com/backend-api/wham/usage` with the access token and
+`ChatGPT-Account-ID` from `$CODEX_HOME/auth.json` (default `~/.codex/`), as
+Codex's `/status` does. Verified on a free-plan account (codex-cli 0.160.0,
+2026-10-02): its only window is 30 days (`primary_window`, `This month`),
+`secondary_window` and `additional_rate_limits` are null. The 5-hour and weekly
+windows of the paid plans are known only from openai/codex's source
+(`codex-usage.json`). Windows carry no name and are told apart by
+`limit_window_seconds`. The response also carries the account's `email`,
+`user_id` and `account_id`, which are never read; `chatpass` and
+`code_review_rate_limit` are not shown.
+
 ## Adding a provider
 
 1. Find the request the CLI makes for its own usage command (`strings` over the

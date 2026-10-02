@@ -1,5 +1,5 @@
-// Written from the openai/codex source and not yet run against a live account
-// (issue #8). The endpoint is the one Codex's own /status reads.
+// The endpoint is the one Codex's own /status reads. Verified against a live
+// free-plan account with codex-cli 0.160.0 on 2026-10-02.
 
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
@@ -14,9 +14,11 @@ const USER_AGENT = 'codex_cli_rs';
 
 // The response does not name its windows, so they are known by their length,
 // within a tolerance. The shared ids let primary-limit find them here too.
+// The free plan has the 30-day window alone.
 const KNOWN_WINDOWS = [
     {seconds: 5 * 60 * 60, tolerance: 60 * 60, id: 'session', label: 'Current session'},
     {seconds: 7 * 24 * 60 * 60, tolerance: 12 * 60 * 60, id: 'weekly_all', label: 'This week'},
+    {seconds: 30 * 24 * 60 * 60, tolerance: 24 * 60 * 60, id: 'monthly', label: 'This month'},
 ];
 
 export const CodexProvider = {
