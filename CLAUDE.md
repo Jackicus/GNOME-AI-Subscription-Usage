@@ -120,7 +120,8 @@ so any display change is one redraw and no request. Only `enabled` re-reads.
   * `assets`: every shipped icon loads through gdk-pixbuf; every named icon exists.
 
   CI adds `libsecret` (`.github/ci-packages`): `antigravity.js` imports
-  `gi://Secret`, and the imports and parsers checks load it.
+  `gi://Secret`, and the imports and parsers checks load it. It ends with `size`:
+  src/ JavaScript against `EXT_BUDGET_LINES` (2900, today's size, provisional).
 * `make providers` — the real provider modules under plain `gjs`, printing what
   each button would show. Tells a data problem from a drawing problem. It reads
   the real stored logins and goes to the network: ask first.
