@@ -212,6 +212,7 @@ export class AiUsageApp {
         const thresholds = {warn: s.get_int('warn-percent'), critical: s.get_int('critical-percent')};
         const options = {
             showPercent: s.get_boolean('show-percent'),
+            hideUnavailable: s.get_boolean('hide-unavailable'),
             limit: s.get_string('primary-limit'),
             resetFormat: s.get_string('reset-format'),
             clock: this._interface.get_string('clock-format'),

@@ -74,13 +74,21 @@ class UsageIndicator extends PanelMenu.Button {
     }
 
     // reading is null until the provider has answered. options: showPercent,
-    // limit (primary-limit), resetFormat, clock ('12h' or '24h').
+    // hideUnavailable, limit (primary-limit), resetFormat, clock ('12h' or '24h').
     setReading(reading, options) {
-        this._renderPanel(reading, options.showPercent, options.limit);
+        this._renderPanel(reading, options);
         this._renderMenu(reading, options);
     }
 
-    _renderPanel(reading, showPercent, limit) {
+    _renderPanel(reading, {showPercent, limit, hideUnavailable}) {
+        const shown = reading?.ok
+            ? reading.limits.find(l => l.id === PRIMARY_LIMIT[limit]) ?? reading.worst
+            : null;
+
+        this.container.visible = !hideUnavailable || shown !== null;
+        if (!this.container.visible)
+            this.menu.close(true);
+
         if (!reading) {
             this._label.set_text('…');
             this._label.visible = showPercent;
@@ -88,9 +96,6 @@ class UsageIndicator extends PanelMenu.Button {
             return;
         }
 
-        const shown = reading.ok
-            ? reading.limits.find(l => l.id === PRIMARY_LIMIT[limit]) ?? reading.worst
-            : null;
         // No figure: amber when the fix is the user's (signing in again).
         if (!shown) {
             this._label.set_text('');

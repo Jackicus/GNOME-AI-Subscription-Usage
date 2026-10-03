@@ -37,8 +37,9 @@ terminal reading 23% and Antigravity's pencil reading 40%.](docs/screenshots/top
 This extension never asks for a password and never signs you in or out. It reads the
 login that your provider's command-line tool has already stored, so that tool has to be
 installed and signed in, and a provider whose tool is not installed gets no button. It
-never refreshes a login either: if the stored login has expired, the button turns amber
-and the pop-up asks you to run the tool once, which refreshes it.
+never refreshes a login either: if the stored login has expired, the button is hidden
+until you run the tool once, which refreshes it (or, with "Hide a button with nothing to
+show" off, it turns amber and the pop-up asks you to).
 
 ## Providers
 
@@ -134,6 +135,11 @@ stored logins and goes online, just as the buttons do.
 - **A provider has no button**: its tool is not on the `PATH` GNOME Shell started with,
   or its switch is off. A tool installed into a directory your terminal adds to `PATH`
   may not be on the session's.
+- **A button has gone**: with "Hide a button with nothing to show" on (the default), a
+  provider that is signed out, whose stored login has expired or that could not be read
+  has no button. The tools refresh their logins only while they run, so use the tool
+  (`claude`, `agy` or `codex`) and the button returns. With the option off the button is
+  amber with no figure instead.
 - **The button is amber with no figure**: the stored login has expired or is missing.
   Run the tool once (`claude`, `agy` or `codex`), signing in if it asks; a new Claude or
   Codex login is picked up within seconds, and any provider's on the next reading or when you open its pop-up.
