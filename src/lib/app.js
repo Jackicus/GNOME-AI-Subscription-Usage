@@ -191,19 +191,19 @@ export class AiUsageApp {
         this.refresh();
     }
 
+    // Each button draws as its own provider answers, so a slow one holds up no other.
     async _readAll(cancellable) {
-        const live = this._live();
-        const readings = await Promise.all(live.map(({provider}) => provider.read(this._http, cancellable)));
-        if (cancellable.is_cancelled())
-            return;
+        await Promise.all(this._live().map(async entry => {
+            const reading = await entry.provider.read(this._http, cancellable);
+            if (cancellable.is_cancelled())
+                return;
 
-        live.forEach((entry, i) => {
-            entry.reading = readings[i];
-            entry.reading.cli = entry.provider.cliName;
-        });
-        this._redraw();
-        // From the untouched readings: a hidden limit still notifies.
-        this._maybeNotify();
+            entry.reading = reading;
+            reading.cli = entry.provider.cliName;
+            this._redraw();
+            // From the untouched readings: a hidden limit still notifies.
+            this._maybeNotify();
+        }));
     }
 
     // A provider that has not answered yet gets null ("Reading usage…").
@@ -290,7 +290,7 @@ export class AiUsageApp {
 
         const wording = {format: this._settings.get_string('reset-format'), clock: this._interface.get_string('clock-format')};
         for (const {reading} of this._live()) {
-            if (reading.status !== Status.OK)
+            if (reading?.status !== Status.OK)
                 continue;
             for (const limit of reading.limits) {
                 const key = `${reading.providerId}:${limit.id}`;
