@@ -13,6 +13,9 @@ import * as Log from './log.js';
 // A scheduled poll is skipped after this long without input.
 const IDLE_SKIP_MS = 10 * 60 * 1000;
 
+// Seconds a tool gets to renew its login before it is stopped.
+const RENEW_TIMEOUT_S = '60';
+
 // Opening a pop-up re-reads only figures older than this (microseconds).
 const FRESH_FOR_US = 60 * GLib.TIME_SPAN_SECOND;
 
@@ -22,8 +25,8 @@ export class AiUsageApp {
         this._settings = extension.getSettings();
 
         this._http = null;
-        // provider id -> {provider, settings, handlerId, indicator, reading}, in registry order;
-        // indicator is null while the provider is not live
+        // provider id -> {provider, settings, handlerId, indicator, reading, renewed}, in registry
+        // order; indicator is null while the provider is not live
         this._providers = new Map();
         this._notified = new Map();   // limit key -> the resets_at (unix seconds) it was notified for
 
@@ -51,7 +54,7 @@ export class AiUsageApp {
             });
             // A copy per enable, so whatever a provider caches goes with disable().
             this._providers.set(provider.id,
-                {provider: Object.create(provider), settings, handlerId, indicator: null, reading: null});
+                {provider: Object.create(provider), settings, handlerId, indicator: null, reading: null, renewed: false});
         }
 
         this._settingsId = this._settings.connect('changed', (_s, key) => {
@@ -59,6 +62,8 @@ export class AiUsageApp {
                 this._placeButtons();
             else if (key === 'poll-seconds')
                 this._schedule();
+            else if (key === 'renew-login')
+                this.refresh();
             else
                 this._redraw();
         });
@@ -200,10 +205,31 @@ export class AiUsageApp {
 
             entry.reading = reading;
             reading.cli = entry.provider.cliName;
+            if (reading.ok)
+                entry.renewed = false;
+            else if (reading.status === Status.EXPIRED)
+                this._renewLogin(entry);
             this._redraw();
             // From the untouched readings: a hidden limit still notifies.
             this._maybeNotify();
         }));
+    }
+
+    // The tool renews its login as it starts and the credentials watch reads the
+    // result. Once per expiry, so a login the tool cannot renew costs one run.
+    _renewLogin(entry) {
+        const {provider} = entry;
+        if (entry.renewed || !provider.renewArgs || !this._settings.get_boolean('renew-login'))
+            return;
+
+        entry.renewed = true;
+        Log.debug(`Running '${provider.cli} ${provider.renewArgs.join(' ')}' to renew the login.`);
+        try {
+            Gio.Subprocess.new(['timeout', RENEW_TIMEOUT_S, provider.cli, ...provider.renewArgs],
+                Gio.SubprocessFlags.STDOUT_SILENCE | Gio.SubprocessFlags.STDERR_SILENCE);
+        } catch (e) {
+            Log.warn(`Could not run ${provider.cli}: ${e.message}`);
+        }
     }
 
     // A provider that has not answered yet gets null ("Reading usage…").

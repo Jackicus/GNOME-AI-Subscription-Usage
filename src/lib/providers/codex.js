@@ -27,6 +27,7 @@ export const CodexProvider = {
     cli: 'codex',
     cliName: 'the Codex CLI',
     icon: 'utilities-terminal-symbolic',
+    renewArgs: ['doctor'],
 
     capabilities: {
         perModel: true,     // additional_rate_limits[], one per metered model

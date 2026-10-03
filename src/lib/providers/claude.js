@@ -28,6 +28,8 @@ export const ClaudeProvider = {
     cli: 'claude',
     cliName: 'Claude Code',
     icon: 'emoji-objects-symbolic',
+    // Run to refresh an expired login: Claude Code renews its own as it starts.
+    renewArgs: ['doctor'],
 
     capabilities: {
         perModel: true,     // weekly_scoped rows, one per model

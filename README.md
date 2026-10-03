@@ -40,6 +40,9 @@ installed and signed in, and a provider whose tool is not installed gets no butt
 never refreshes a login either: if the stored login has expired, the button is hidden
 until you run the tool once, which refreshes it (or, with "Hide a button with nothing to
 show" off, it turns amber and the pop-up asks you to).
+With "Renew an expired login" on, the extension runs `claude doctor` or `codex doctor` once
+when a login expires, which makes the tool refresh it itself; it is off by default because
+it starts the tool, and Antigravity has no such command.
 
 ## Providers
 
