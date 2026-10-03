@@ -46,7 +46,6 @@ class UsageIndicator extends PanelMenu.Button {
     _init(iconName, fallbackFile, name, actions) {
         super._init(0.5, `${name} usage`, false);
 
-        this.add_style_class_name('ai-usage-panel-button');
         // menu.box is the actor that gets `.popup-menu-content`, so the width goes there.
         this.menu.box.add_style_class_name('ai-usage-menu');
 
