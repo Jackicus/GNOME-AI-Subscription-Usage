@@ -18,6 +18,10 @@ own command-line tool has already stored, and does nothing else with it:
 * It never refreshes a token. Refreshing Claude's rotates the refresh token and
   could sign the user out of Claude Code. A rejected token (401/403) is
   `Status.EXPIRED`, and the button asks the user to run the tool once.
+* `renew-login` (off by default) is the one way past that: once per expiry it
+  runs the tool's own `doctor` (`renewArgs`), which refreshes the login as the
+  tool starts, and the credentials watch reads the result. The tool does the
+  refreshing, never this extension (`.claude/rules/providers.md`).
 * Tokens are read fresh on every poll and never held — the tool rewrites the
   file when it refreshes, so a cached token is a stale one.
 * Nothing is ever written to a provider's files; no token is logged, ever.
@@ -95,7 +99,7 @@ log on (`lib/log.js`'s `setVerbose`) and names its stage after a checksum of
 ## Settings
 
 Global keys: `primary-limit` (`session` default, `highest`, `weekly`),
-`show-percent`, `hide-unavailable`, `reset-format`, `panel-box`, `panel-index`, `poll-seconds`,
+`show-percent`, `hide-unavailable`, `renew-login`, `reset-format`, `panel-box`, `panel-index`, `poll-seconds`,
 `warn-percent`, `critical-percent`, `notify-percent`.
 
 **Per-provider keys are a relocatable schema** at

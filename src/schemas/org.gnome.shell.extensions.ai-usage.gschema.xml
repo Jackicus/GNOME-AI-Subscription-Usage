@@ -36,6 +36,12 @@
             <description>A provider that is signed out, whose stored login has expired or that could not be read has no button until it has a figure. It is still read, so the button returns by itself.</description>
         </key>
 
+        <key name="renew-login" type="b">
+            <default>false</default>
+            <summary>Renew an expired login by running the provider's tool</summary>
+            <description>Once each time a login expires, runs the tool's own diagnostics command (claude doctor, codex doctor), which refreshes the login it stored. The extension still never refreshes a token itself.</description>
+        </key>
+
         <key name="reset-format" enum="org.gnome.shell.extensions.ai-usage.reset-format">
             <default>'auto'</default>
             <summary>How a reset time is worded</summary>

@@ -14,7 +14,7 @@ export default class AiUsagePreferences extends ExtensionPreferences {
 
         window.add(this._buttonPage(settings));
         window.add(this._readingPage(settings));
-        window.add(this._providersPage());
+        window.add(this._providersPage(settings));
     }
 
     _buttonPage(settings) {
@@ -101,7 +101,7 @@ export default class AiUsagePreferences extends ExtensionPreferences {
         return page;
     }
 
-    _providersPage() {
+    _providersPage(settings) {
         const page = new Adw.PreferencesPage({
             title: 'Providers',
             icon_name: 'system-users-symbolic',
@@ -119,6 +119,16 @@ export default class AiUsagePreferences extends ExtensionPreferences {
             group.add(this._providerRow(provider));
 
         page.add(group);
+
+        const renew = new Adw.PreferencesGroup({
+            title: 'Expired logins',
+            description: 'Claude Code and Codex renew their login only when they run, so after a few hours it '
+                + 'lapses until you have used the tool.',
+        });
+        renew.add(switchRow(settings, 'renew-login', 'Renew an expired login',
+            'Runs "claude doctor" or "codex doctor" once each time the login expires, which makes the tool '
+            + 'refresh it. Not available for Antigravity.'));
+        page.add(renew);
         return page;
     }
 

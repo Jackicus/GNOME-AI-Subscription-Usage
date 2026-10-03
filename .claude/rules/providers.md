@@ -64,6 +64,21 @@ windows of the paid plans are known only from openai/codex's source
 `user_id` and `account_id`, which are never read; `chatpass` and
 `code_review_rate_limit` are not shown.
 
+## Renewing an expired login
+
+`renew-login` runs `timeout 60 <cli> <renewArgs>` once per expiry (reset by the
+next good read) and does not wait: the credentials file monitor reads the result.
+`renewArgs` is `['doctor']` for Claude and Codex, found by pointing each CLI at a
+mock token server (fake logins in a scratch `HOME`, a local TLS stand-in via
+`NODE_EXTRA_CA_CERTS` / `SSL_CERT_FILE` and `HTTPS_PROXY`; nothing real is
+touched, and a real refresh would rotate Claude's token): Claude Code 2.1.288
+and codex-cli 0.156.0, 2026-10-03. `claude doctor` and `claude mcp list` refresh
+and rewrite the file with no model call (`mcp list` also starts the user's MCP
+servers); `claude auth status` posts the refresh but exits before saving it;
+`codex doctor` refreshes, while `codex login status` and `codex mcp list` do not.
+`agy models` never asked the token endpoint, so Antigravity has none (#29).
+Re-run that probe before changing a command or after a CLI major version.
+
 ## Adding a provider
 
 1. Find the request the CLI makes for its own usage command (`strings` over the
@@ -78,7 +93,8 @@ windows of the paid plans are known only from openai/codex's source
    provider uses, never the company's mark or one drawn after it: README,
    Credits and trademarks; `make assets` checks it), `capabilities`
    (which of `perModel`, `breakdown`, `credits` it can honour),
-   `credentialsFile()` (watched, so the tool's refresh is read at once) and
+   `renewArgs` (optional: the CLI's arguments that make it refresh its own login,
+   below), `credentialsFile()` (watched, so the tool's refresh is read at once) and
    `read(http, cancellable)`, resolving to a `Reading`, the login read afresh
    each call. Contract: never throw (return a `Reading` with a `Status`; only a
    cancellation, which `failureReading()` throws on, goes up), never write to the
