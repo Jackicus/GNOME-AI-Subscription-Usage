@@ -25,4 +25,4 @@ paths:
   the only flat colours, since St names no warning colour. A normal bar is
   `-st-accent-color`. No foreground colour is hardcoded.
 * Paddings are px measured from the shell's own theme (`.popup-menu-item`,
-  `.quick-settings`, `#panel .panel-button`), each with its reason beside it.
+  `.quick-settings`), each with its reason beside it.

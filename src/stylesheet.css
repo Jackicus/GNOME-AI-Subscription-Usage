@@ -1,11 +1,5 @@
 /* Sizes are taken from the shell's own theme (.popup-menu-item, .quick-settings,
-   .slider, #panel .panel-button). No foreground colour is hardcoded. */
-
-/* Under the shell's 12px, so the button's edge stays near its figure; two
-   classes and the id outweigh #panel .panel-button in either load order. */
-#panel .panel-button.ai-usage-panel-button {
-    -natural-hpadding: 8px;
-}
+   .slider). No foreground colour is hardcoded. */
 
 .ai-usage-panel-box {
     spacing: 4px;
