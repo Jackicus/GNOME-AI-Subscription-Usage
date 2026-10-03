@@ -34,6 +34,9 @@ export default class AiUsagePreferences extends ExtensionPreferences {
         ]));
         shown.add(switchRow(settings, 'show-percent', 'Show the percentage',
             'With this off a button is its icon alone, tinted by how much has been used.'));
+        shown.add(switchRow(settings, 'hide-unavailable', 'Hide a button with nothing to show',
+            'Signed out, login expired or unreadable. The tool refreshes its login only while it runs, '
+            + 'so the button returns by itself once you have used it.'));
         page.add(shown);
 
         const popup = new Adw.PreferencesGroup({

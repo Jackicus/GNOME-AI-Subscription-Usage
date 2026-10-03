@@ -62,8 +62,10 @@ log on (`lib/log.js`'s `setVerbose`) and names its stage after a checksum of
 
 ## How it behaves
 
-* **One button per live provider** (`enabled` and its CLI on `PATH`), always:
-  a percentage must sit beside an icon telling its subscription apart. `_syncButtons()`
+* **One button per live provider** (`enabled` and its CLI on `PATH`), each with
+  its icon, since a percentage must sit beside one telling its subscription apart.
+  `hide-unavailable` (default on) hides a button that has no figure, or no
+  reading yet; it is still read, so it returns when the tool refreshes its login. `_syncButtons()`
   diffs against the live list, so toggling needs no restart. Role
   `${uuid}-${providerId}`; placed in `panel-box` from `panel-index`, in registry
   order. The icon is the provider's `icon`, a stock Adwaita symbolic (the
@@ -93,7 +95,7 @@ log on (`lib/log.js`'s `setVerbose`) and names its stage after a checksum of
 ## Settings
 
 Global keys: `primary-limit` (`session` default, `highest`, `weekly`),
-`show-percent`, `reset-format`, `panel-box`, `panel-index`, `poll-seconds`,
+`show-percent`, `hide-unavailable`, `reset-format`, `panel-box`, `panel-index`, `poll-seconds`,
 `warn-percent`, `critical-percent`, `notify-percent`.
 
 **Per-provider keys are a relocatable schema** at

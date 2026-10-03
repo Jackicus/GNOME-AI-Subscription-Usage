@@ -30,6 +30,12 @@
             <description>With this off a button is its icon alone, tinted by how much has been used.</description>
         </key>
 
+        <key name="hide-unavailable" type="b">
+            <default>true</default>
+            <summary>Hide a button that has no figure to show</summary>
+            <description>A provider that is signed out, whose stored login has expired or that could not be read has no button until it has a figure. It is still read, so the button returns by itself.</description>
+        </key>
+
         <key name="reset-format" enum="org.gnome.shell.extensions.ai-usage.reset-format">
             <default>'auto'</default>
             <summary>How a reset time is worded</summary>
